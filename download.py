@@ -30,7 +30,8 @@ def already_downloaded(info: dict[str, str]) -> bool:
 
 
 def send_notif(title: str, msg: str) -> None:
-    subprocess.run(['notify-send', title, msg])
+    subprocess.run(['notify-send', '--hint=int:transient:1',
+                    '--urgency=normal', title, msg])
 
 
 def main() -> None:
