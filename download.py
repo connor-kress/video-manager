@@ -30,7 +30,7 @@ def set_url_prop(in_path: Path, out_path: Path, url: str) -> None:
     subprocess.run([
         'ffmpeg',
         '-i', in_path,
-        '-metadata', f'URL="{url}"',
+        '-metadata', f'URL={url}',
         '-codec', 'copy',
         out_path,
     ])
