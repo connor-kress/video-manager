@@ -25,12 +25,17 @@ def send_notif(title: str, msg: str) -> None:
                     '--urgency=normal', title, msg])
 
 
-def set_url_prop(in_path: Path, out_path: Path, url: str) -> None:
+def set_props(
+    in_path: Path, out_path: Path,
+    url: str, title: str, artist: str
+) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run([
         'ffmpeg',
         '-i', in_path,
         '-metadata', f'URL={url}',
+        '-metadata', f'title={title}',
+        '-metadata', f'artist={artist}',
         '-codec', 'copy',
         out_path,
     ])
@@ -48,6 +53,7 @@ def main() -> None:
             send_notif('Error', f'Could not resolve URL: {url}')
             sys.exit(1)
         title = info['title'] 
+        artist = info['uploader']
         temp_path, file_path = get_file_paths(info)
         if file_path.is_file():  # TODO: check using URL prop
             send_notif('Already Downloaded', title)
@@ -58,7 +64,7 @@ def main() -> None:
         except yt_dlp.DownloadError:
             send_notif('Error', f'Error while downloading video: {url}\n{info}')
             sys.exit(1)
-    set_url_prop(temp_path, file_path, url)
+    set_props(temp_path, file_path, url, title, artist)
     send_notif('Finished Download', title)
 
 
