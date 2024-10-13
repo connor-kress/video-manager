@@ -1,9 +1,10 @@
 import subprocess
 import sys
 from typing import Optional
-from download import send_notif
 from pathlib import Path
 from pymediainfo import MediaInfo
+
+from download import get_final_dir, send_notif
 
 
 def read_url_from_mkv(file_path: Path) -> Optional[str]:
@@ -38,8 +39,7 @@ def main() -> None:
         send_notif('Error', f'Invalid arguments: {sys.argv[1:]}')
         sys.exit(1)
     url = sys.argv[1]
-    base_dir = Path.home() / 'Videos' / 'newsboat'
-    file_path = get_path_to_video(base_dir, url)
+    file_path = get_path_to_video(get_final_dir(), url)
     if file_path is not None:
         # send_notif('Found video', str(file_path))
         play_file(file_path)

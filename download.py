@@ -4,19 +4,27 @@ import sys
 import yt_dlp
 from yt_dlp.utils import sanitize_filename
 
+
+def get_temp_dir() -> Path:
+    return Path.home() / 'Videos' / 'tmp_downloads'
+
+
+def get_final_dir() -> Path:
+    return Path.home() / 'Videos' / 'Youtube'
+
+
 YDL_OPTS = {
     'format': 'bestvideo[height<=2160]+bestaudio/best',
     'merge_output_format': 'mkv',
-    'outtmpl': str(Path.home() / 'Videos' / 'tmp_downloads' /
-                   '%(uploader)s' / '%(title)s.%(ext)s'),
+    'outtmpl': str(get_temp_dir() / '%(uploader)s' / '%(title)s.%(ext)s'),
 }
 
 
 def get_file_paths(info: dict[str, str]) -> tuple[Path, Path]:
     file_name = sanitize_filename(f'{info["title"]}.{info["ext"]}')
     dir_name = sanitize_filename(info['uploader'])
-    temp_path = Path.home() / 'Videos' / 'tmp_downloads' / dir_name / file_name
-    file_path = Path.home() / 'Videos' / 'newsboat' / dir_name / file_name
+    temp_path = get_temp_dir() / dir_name / file_name
+    file_path = get_final_dir() / dir_name / file_name
     return (temp_path, file_path)
 
 
