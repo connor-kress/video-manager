@@ -57,9 +57,13 @@ def main() -> None:
         sys.exit(1)
     url = sys.argv[1]
     with yt_dlp.YoutubeDL(YDL_OPTS) as ydl:
-        info = ydl.extract_info(url, download=False)
+        try:
+            info = ydl.extract_info(url, download=False)
+        except yt_dlp.DownloadError as e:
+            send_notif('Error', f'Error downloading video: {url} {e.msg}')
+            sys.exit(1)
         if info is None:
-            send_notif('Error', f'Could not resolve URL: {url}')
+            send_notif('Error', f'Error locating video: {url}')
             sys.exit(1)
         title = info['title'] 
         artist = info['uploader']
@@ -70,8 +74,8 @@ def main() -> None:
         send_notif('Starting Download', title)
         try:
             ydl.download([url])
-        except yt_dlp.DownloadError:
-            send_notif('Error', f'Error while downloading video: {url}\n{info}')
+        except yt_dlp.DownloadError as e:
+            send_notif('Error', f'Error downloading video: {url} {e.msg}')
             sys.exit(1)
     set_props(temp_path, file_path, url, title, artist)
     send_notif('Finished Download', title)
