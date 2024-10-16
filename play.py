@@ -27,7 +27,15 @@ def get_path_to_video(base_dir: Path, url: str) -> Optional[Path]:
 
 
 def stream_video(url: str) -> None:
-    subprocess.run(['mpv', url])
+    try:
+        subprocess.run(['mpv', url], check=True, capture_output=True)
+    except subprocess.CalledProcessError as e:
+        if 'members-only' in str(e.stderr):
+            send_notif('Error: Members Only', f'Members only video: {url}')
+        else:
+            send_notif('Error', f'Error streaming video: {url} {e.stderr}')
+        raise e
+
 
 
 def play_file(file_path: Path) -> None:
