@@ -4,27 +4,23 @@ import sys
 import yt_dlp
 from yt_dlp.utils import sanitize_filename
 
-
-def get_temp_dir() -> Path:
-    return Path.home() / 'Videos' / 'tmp_downloads'
-
-
-def get_final_dir() -> Path:
-    return Path.home() / 'Videos' / 'Youtube'
-
+TEMP_DIR = Path.home() / 'Videos' / 'tmp_downloads'
+DEST_DIR = Path.home() / 'Videos' / 'Youtube'
 
 YDL_OPTS = {
     'format': 'bestvideo[height<=2160]+bestaudio/best',
     'merge_output_format': 'mkv',
-    'outtmpl': str(get_temp_dir() / '%(uploader)s' / '%(title)s.%(ext)s'),
+    'outtmpl': str(TEMP_DIR / '%(uploader)s' / '%(title)s.%(ext)s'),
+    'embed-metadata': True,
+    'embed-chapters': True,
 }
 
 
 def get_file_paths(info: dict[str, str]) -> tuple[Path, Path]:
-    file_name = sanitize_filename(f'{info["title"]}.{info["ext"]}')
-    dir_name = sanitize_filename(info['uploader'])
-    temp_path = get_temp_dir() / dir_name / file_name
-    file_path = get_final_dir() / dir_name / file_name
+    file_name = sanitize_filename(f'{info["title"]}.mkv')  # force mkv
+    dir_name = sanitize_filename(info.get('uploader', 'Unknown'))
+    temp_path = TEMP_DIR / dir_name / file_name
+    file_path = DEST_DIR / dir_name / file_name
     return (temp_path, file_path)
 
 
@@ -65,9 +61,12 @@ def main() -> None:
         if info is None:
             send_notif('Error', f'Error locating video: {url}')
             sys.exit(1)
-        title = info['title'] 
-        artist = info['uploader']
+        title = info.get('title', info.get('id', 'Unknown'))
+        artist = info.get('uploader', 'Unknown')
         temp_path, file_path = get_file_paths(info)
+        # print("current:", ydl.params['outtmpl']['default'])
+        # print("new:", str(temp_path))
+        ydl.params['outtmpl']['default'] = str(temp_path)
         if file_path.is_file():  # TODO: check using URL prop
             send_notif('Already Downloaded', title)
             return
