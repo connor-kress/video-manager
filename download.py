@@ -25,7 +25,7 @@ def is_zoom_link(url: str) -> bool:
 def get_file_paths(info: dict[str, str]) -> tuple[Path, Path]:
     url = info['original_url']
     if is_zoom_link(url):
-        file_name = sanitize_filename(f'{info["id"]}.mkv')  # force mkv
+        file_name = sanitize_filename(f'zoom-{info["id"]}.mkv')  # force mkv
     else:
         file_name = sanitize_filename(f'{info["title"]}.mkv')  # force mkv
     dir_name = sanitize_filename(info.get('uploader', 'Unknown'))
