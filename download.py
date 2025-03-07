@@ -1,12 +1,28 @@
 from pathlib import Path
 import re
+import sqlite3
 import subprocess
 import sys
+from typing import Optional
 import yt_dlp
 from yt_dlp.utils import sanitize_filename
 
 TEMP_DIR = Path.home() / 'Videos' / 'tmp_downloads'
 DEST_DIR = Path.home() / 'Videos' / 'Youtube'
+DEST_DIR.mkdir(parents=True, exist_ok=True)
+
+conn = sqlite3.connect(DEST_DIR / 'metadata.db')
+cur = conn.cursor()
+
+cur.execute("""
+CREATE TABLE IF NOT EXISTS videos (
+    url TEXT NOT NULL UNIQUE PRIMARY KEY,
+    path TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL,
+    artist TEXT NOT NULL
+);
+""")
+conn.commit()
 
 YDL_OPTS = {
     'format': 'bestvideo[height<=2160]+bestaudio/best',
@@ -15,6 +31,39 @@ YDL_OPTS = {
     'embed-metadata': True,
     'embed-chapters': True,
 }
+
+
+def insert_video(path: Path, url: str, title: str, artist: str) -> None:
+    cur.execute(
+        """
+        INSERT INTO videos (url, path, title, artist)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(url) DO UPDATE SET
+            path = excluded.path,
+            title = excluded.title,
+            artist = excluded.artist;
+        """,
+        (url, str(path), title, artist),
+    )
+    conn.commit()
+
+
+def get_video_path(url: str) -> Optional[Path]:
+    print(f'Searching for {url}')
+    cur.execute('SELECT path FROM videos WHERE url = ?;', (url,))
+    row = cur.fetchone()
+    if row is None:
+        print('Video not found')
+        return None
+    else:
+        path_str = row[0]
+        assert isinstance(path_str, str)
+        path = Path(path_str)
+        if not path.is_file():
+            print(f'Deleted entry: {path_str}')
+            return None
+        print(f'Video found: {path_str}')
+        return path
 
 
 def is_zoom_link(url: str) -> bool:
@@ -85,6 +134,7 @@ def main() -> None:
             send_notif('Error', f'Error downloading video: {url} {e.msg}')
             sys.exit(1)
     set_props(temp_path, file_path, url, title, artist)
+    insert_video(file_path, url, title, artist)
     send_notif('Finished Download', title)
 
 

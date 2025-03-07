@@ -4,7 +4,7 @@ from typing import Optional
 from pathlib import Path
 from pymediainfo import MediaInfo
 
-from download import DEST_DIR, send_notif
+from download import DEST_DIR, get_video_path, send_notif
 
 
 def read_url_from_mkv(file_path: Path) -> Optional[str]:
@@ -17,7 +17,7 @@ def read_url_from_mkv(file_path: Path) -> Optional[str]:
     return None
 
 
-def get_path_to_video(base_dir: Path, url: str) -> Optional[Path]:
+def get_path_to_video_recursive(base_dir: Path, url: str) -> Optional[Path]:
     for file_path in base_dir.rglob('*.mkv'):
         print(file_path)
         file_url = read_url_from_mkv(file_path)
@@ -48,12 +48,15 @@ def main() -> None:
         send_notif('Error', f'Invalid arguments: {sys.argv[1:]}')
         sys.exit(1)
     url = sys.argv[1]
-    file_path = get_path_to_video(DEST_DIR, url)
+
+    file_path = get_video_path(url)
     if file_path is not None:
         # send_notif('Found video', str(file_path))
+        print(f'Found video {str(file_path)}')
         play_file(file_path)
     else:
         # send_notif('Streaming video', url)
+        print(f'Streaming video {url}')
         stream_video(url)
 
 
