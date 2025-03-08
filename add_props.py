@@ -1,6 +1,9 @@
 from sys import argv, exit
 from pathlib import Path
-from download import Metadata, set_props
+
+from database import Metadata
+from download import set_props
+
 
 def main() -> None:
     print(f"{argv=}")
@@ -19,7 +22,7 @@ def main() -> None:
     out_path = Path(out_arg)
 
     set_props(in_path, out_path, metadata)
-    # "https://ufl.instructure.com/courses/525435/files/95194725?module_item_id=11820556", "Divide and Conquer Review", "Christina Boucher"
+
 
 if __name__ == "__main__":
     main()

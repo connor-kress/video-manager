@@ -1,37 +1,14 @@
-from dataclasses import dataclass
 from pathlib import Path
 import re
-import sqlite3
 import subprocess
 import sys
-from typing import Optional
 import yt_dlp
 from yt_dlp.utils import sanitize_filename
 
-TEMP_DIR = Path.home() / 'Videos' / 'tmp_downloads'
-DEST_DIR = Path.home() / 'Videos' / 'Youtube'
-DEST_DIR.mkdir(parents=True, exist_ok=True)
+from constants import DEST_DIR, TEMP_DIR
+from database import insert_video, Metadata
+from util import send_notif
 
-conn = sqlite3.connect(DEST_DIR / 'metadata.db')
-cur = conn.cursor()
-
-
-@dataclass
-class Metadata:
-    url: str
-    title: str
-    artist: str
-
-
-cur.execute("""
-CREATE TABLE IF NOT EXISTS videos (
-    url TEXT NOT NULL UNIQUE PRIMARY KEY,
-    path TEXT NOT NULL UNIQUE,
-    title TEXT NOT NULL,
-    artist TEXT NOT NULL
-);
-""")
-conn.commit()
 
 YDL_OPTS = {
     'format': 'bestvideo[height<=2160]+bestaudio/best',
@@ -40,39 +17,6 @@ YDL_OPTS = {
     'embed-metadata': True,
     'embed-chapters': True,
 }
-
-
-def insert_video(path: Path, metadata: Metadata) -> None:
-    cur.execute(
-        """
-        INSERT INTO videos (url, path, title, artist)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(url) DO UPDATE SET
-            path = excluded.path,
-            title = excluded.title,
-            artist = excluded.artist;
-        """,
-        (metadata.url, str(path), metadata.title, metadata.artist),
-    )
-    conn.commit()
-
-
-def get_video_path(url: str) -> Optional[Path]:
-    print(f'Searching for {url}')
-    cur.execute('SELECT path FROM videos WHERE url = ?;', (url,))
-    row = cur.fetchone()
-    if row is None:
-        print('Video not found')
-        return None
-    else:
-        path_str = row[0]
-        assert isinstance(path_str, str)
-        path = Path(path_str)
-        if not path.is_file():
-            print(f'Deleted entry: {path_str}')
-            return None
-        print(f'Video found: {path_str}')
-        return path
 
 
 def is_zoom_link(url: str) -> bool:
@@ -90,12 +34,6 @@ def get_file_paths(info: dict[str, str]) -> tuple[Path, Path]:
     temp_path = TEMP_DIR / dir_name / file_name
     file_path = DEST_DIR / dir_name / file_name
     return (temp_path, file_path)
-
-
-# TODO: add link to file for download complete notification
-def send_notif(title: str, msg: str) -> None:
-    subprocess.run(['notify-send', '--hint=int:transient:1',
-                    '--urgency=normal', title, msg])
 
 
 def set_props( in_path: Path, out_path: Path, metadata: Metadata) -> None:

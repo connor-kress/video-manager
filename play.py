@@ -1,34 +1,9 @@
 import subprocess
 import sys
-from typing import Optional
 from pathlib import Path
-from pymediainfo import MediaInfo
 
-from download import DEST_DIR, Metadata, get_video_path, send_notif
-
-def read_metadata(file_path: Path) -> Optional[Metadata]:
-    media_info = MediaInfo.parse(file_path)
-    if isinstance(media_info, str):
-        return None
-    for track in media_info.tracks:
-        if track.track_type == 'General':
-            metadata = Metadata(
-                url=track.url,
-                title=track.title,
-                artist=track.artist,
-            )
-            return metadata
-    return None
-
-
-def get_path_to_video_recursive(base_dir: Path, url: str) -> Optional[Path]:
-    for file_path in base_dir.rglob('*.mkv'):
-        print(file_path)
-        metadata = read_metadata(file_path)
-        print(metadata)
-        if metadata is not None and metadata.url == url:
-            return file_path
-    return None
+from database import get_video_path
+from download import send_notif
 
 
 def stream_video(url: str) -> None:
@@ -52,7 +27,6 @@ def main() -> None:
         sys.exit(1)
     url = sys.argv[1]
 
-    # file_path = get_path_to_video_recursive(DEST_DIR, url)
     file_path = get_video_path(url)
     if file_path is not None:
         # send_notif('Found video', str(file_path))
