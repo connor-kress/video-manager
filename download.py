@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from pathlib import Path
 import re
 import sqlite3
@@ -13,6 +14,14 @@ DEST_DIR.mkdir(parents=True, exist_ok=True)
 
 conn = sqlite3.connect(DEST_DIR / 'metadata.db')
 cur = conn.cursor()
+
+
+@dataclass
+class Metadata:
+    url: str
+    title: str
+    artist: str
+
 
 cur.execute("""
 CREATE TABLE IF NOT EXISTS videos (
@@ -33,7 +42,7 @@ YDL_OPTS = {
 }
 
 
-def insert_video(path: Path, url: str, title: str, artist: str) -> None:
+def insert_video(path: Path, metadata: Metadata) -> None:
     cur.execute(
         """
         INSERT INTO videos (url, path, title, artist)
@@ -43,7 +52,7 @@ def insert_video(path: Path, url: str, title: str, artist: str) -> None:
             title = excluded.title,
             artist = excluded.artist;
         """,
-        (url, str(path), title, artist),
+        (metadata.url, str(path), metadata.title, metadata.artist),
     )
     conn.commit()
 
@@ -89,21 +98,18 @@ def send_notif(title: str, msg: str) -> None:
                     '--urgency=normal', title, msg])
 
 
-def set_props(
-    in_path: Path, out_path: Path,
-    url: str, title: str, artist: str
-) -> None:
+def set_props( in_path: Path, out_path: Path, metadata: Metadata) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run([
         'ffmpeg',
         '-i', in_path,
-        '-metadata', f'URL={url}',
-        '-metadata', f'title={title}',
-        '-metadata', f'artist={artist}',
+        '-metadata', f'URL={metadata.url}',
+        '-metadata', f'title={metadata.title}',
+        '-metadata', f'artist={metadata.artist}',
         '-codec', 'copy',
         out_path,
     ])
-    print(f'set url prop to {url}')
+    print(f'set url prop to {metadata.url}')
 
 
 def main() -> None:
@@ -120,22 +126,25 @@ def main() -> None:
         if info is None:
             send_notif('Error', f'Error locating video: {url}')
             sys.exit(1)
-        title = info.get('title', info.get('id', 'Unknown'))
-        artist = info.get('uploader', 'Unknown')
+        metadata = Metadata(
+            url=url,
+            title = info.get('title', info.get('id', 'Unknown')),
+            artist = info.get('uploader', 'Unknown'),
+        )
         temp_path, file_path = get_file_paths(info)
         ydl.params['outtmpl']['default'] = str(temp_path)
         if file_path.is_file():  # TODO: check using URL prop
-            send_notif('Already Downloaded', title)
+            send_notif('Already Downloaded', metadata.title)
             return
-        send_notif('Starting Download', title)
+        send_notif('Starting Download', metadata.title)
         try:
-            ydl.download([url])
+            ydl.download([metadata.url])
         except yt_dlp.DownloadError as e:
             send_notif('Error', f'Error downloading video: {url} {e.msg}')
             sys.exit(1)
-    set_props(temp_path, file_path, url, title, artist)
-    insert_video(file_path, url, title, artist)
-    send_notif('Finished Download', title)
+    set_props(temp_path, file_path, metadata)
+    insert_video(file_path, metadata)
+    send_notif('Finished Download', metadata.title)
 
 
 if __name__ == '__main__':
