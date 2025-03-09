@@ -36,6 +36,10 @@ def insert_video(path: Path, metadata: Metadata) -> None:
         ON CONFLICT(url) DO UPDATE SET
             path = excluded.path,
             title = excluded.title,
+            artist = excluded.artist
+        ON CONFLICT(path) DO UPDATE SET
+            url = excluded.url,
+            title = excluded.title,
             artist = excluded.artist;
         """,
         (str(path), metadata.url, metadata.title, metadata.artist),
@@ -43,22 +47,27 @@ def insert_video(path: Path, metadata: Metadata) -> None:
     conn.commit()
 
 
-def get_video_path(url: str) -> Optional[Path]:
-    print(f'Searching for {url}')
-    cur.execute('SELECT path FROM videos WHERE url = ?;', (url,))
+def get_video(url: str) -> tuple[Optional[Path], Optional[Metadata]]:
+    cur.execute(
+        'SELECT path, url, title, artist FROM videos WHERE url = ?;', (url,)
+    )
     row = cur.fetchone()
     if row is None:
         print('Video not found')
-        return None
-    else:
-        path_str = row[0]
-        assert isinstance(path_str, str)
-        path = Path(path_str)
-        if not path.is_file():
-            print(f'Deleted entry: {path_str}')
-            return None
-        print(f'Video found: {path_str}')
-        return path
+        return None, None
+    assert len(row) == 4
+    path_str = row[0]
+    path = Path(path_str)
+    metadata = Metadata(
+        url=row[1],
+        title=row[2],
+        artist=row[3],
+    )
+    if not path.is_file():
+        print(f'Deleted entry: {path_str}')
+        return None, metadata
+    print(f'Video found: {path_str}')
+    return path, metadata
 
 
 def get_all_videos() -> list[tuple[Path, Metadata]]:

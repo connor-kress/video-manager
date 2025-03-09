@@ -2,7 +2,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from database import get_video_path
+from database import get_video
 from download import send_notif
 
 
@@ -27,14 +27,15 @@ def main() -> None:
         sys.exit(1)
     url = sys.argv[1]
 
-    file_path = get_video_path(url)
+    file_path, metadata = get_video(url)
     if file_path is not None:
-        # send_notif('Found video', str(file_path))
-        print(f'Found video {str(file_path)}')
+        assert metadata is not None
+        # send_notif('Found video', metadata.title)
+        print(f'Found video: {metadata.title}')
         play_file(file_path)
     else:
         # send_notif('Streaming video', url)
-        print(f'Streaming video {url}')
+        print(f'Streaming video: {url}')
         stream_video(url)
 
 

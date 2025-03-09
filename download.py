@@ -6,7 +6,7 @@ import yt_dlp
 from yt_dlp.utils import sanitize_filename
 
 from constants import DEST_DIR, TEMP_DIR
-from database import insert_video, Metadata
+from database import get_video, insert_video, Metadata
 from util import send_notif
 
 
@@ -40,6 +40,7 @@ def set_props( in_path: Path, out_path: Path, metadata: Metadata) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run([
         'ffmpeg',
+        '-y',  # overwrite destination file without asking
         '-i', in_path,
         '-metadata', f'URL={metadata.url}',
         '-metadata', f'title={metadata.title}',
@@ -55,6 +56,12 @@ def main() -> None:
         send_notif('Error', f'Invalid arguments: {sys.argv[1:]}')
         sys.exit(1)
     url = sys.argv[1]
+    file_path, metadata = get_video(url)
+    if file_path is not None:
+        assert metadata is not None
+        send_notif('Already Downloaded', metadata.title)
+        return
+
     with yt_dlp.YoutubeDL(YDL_OPTS) as ydl:
         try:
             info = ydl.extract_info(url, download=False)
@@ -71,9 +78,6 @@ def main() -> None:
         )
         temp_path, file_path = get_file_paths(info)
         ydl.params['outtmpl']['default'] = str(temp_path)
-        if file_path.is_file():  # TODO: check using URL prop
-            send_notif('Already Downloaded', metadata.title)
-            return
         send_notif('Starting Download', metadata.title)
         try:
             ydl.download([metadata.url])
