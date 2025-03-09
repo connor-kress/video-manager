@@ -13,7 +13,10 @@ def stream_video(url: str) -> None:
         if 'members-only' in str(e.stderr):
             send_notif('Error: Members Only', f'Members only video: {url}')
         else:
-            send_notif('Error', f'Error streaming video: {url} {e.stderr}')
+
+            if not e.stderr:
+                e.stderr = 'Invalid url'
+            send_notif('Error streaming video', f'{url} - {e.stderr}')
         raise e
 
 
