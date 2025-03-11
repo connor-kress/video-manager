@@ -5,6 +5,8 @@ import browser_cookie3
 import requests
 import subprocess
 
+from util import send_notif
+
 
 def get_cookie_string(domain_filter: str) -> str:
     """Extract cookies for the given domain and return them as a
@@ -14,8 +16,8 @@ def get_cookie_string(domain_filter: str) -> str:
     cookies = []
     for cookie in cj:
         if domain_filter in cookie.domain:
-            cookies.append(f"{cookie.name}={cookie.value}")
-    return "; ".join(cookies)
+            cookies.append(f'{cookie.name}={cookie.value}')
+    return '; '.join(cookies)
 
 
 def get_player_options(
@@ -42,10 +44,10 @@ def get_player_options(
         'Priority': 'u=0'
     }
     data = {
-        "getPlayerOptionsRequest": {
-            "QueryString": "",
-            "ResourceId": video_id,
-            "UrlReferrer": None
+        'getPlayerOptionsRequest': {
+            'QueryString': '',
+            'ResourceId': video_id,
+            'UrlReferrer': None
         }
     }
     response = requests.post(url, headers=headers, json=data)
@@ -56,8 +58,13 @@ def get_player_options(
 def extract_mediasite_m3u8_url(json_response: dict[str, Any]) -> Optional[str]:
     """Extract the first m3u8 URL from the JSON response."""
     try:
-        return json_response['d']['Presentation']['Streams'][0]['VideoUrls'][0]['Location']
-    except (KeyError, IndexError):
+        presentation = json_response['d']['Presentation']
+        if presentation is None:
+            print('Presentation is null in json (extracting m3u8 url)')
+            return None  # might be expired auth
+        return presentation['Streams'][0]['VideoUrls'][0]['Location']
+    except (KeyError, IndexError, TypeError) as e:
+        print(f'Unable to parse json for m3u8 url: {str(e)}')
         return None
 
 
@@ -74,20 +81,24 @@ def download_m3u8(m3u8_url: str, out_path: Path) -> None:
     subprocess.run(ffmpeg_cmd, check=True)
 
 def download_mediasite_video(video_url: str, out_path: Path) -> None:
-    video_id = video_url.rstrip("/").split("/")[-1]
+    video_id = video_url.rstrip('/').split('/')[-1]
     # Extract cookies from Firefox for the domain
-    cookie_str = get_cookie_string("mediasite.video.ufl.edu")
+    cookie_str = get_cookie_string('mediasite.video.ufl.edu')
+    # print(f'{cookie_str=}')
     # Get the JSON response for player options
     json_data = get_player_options(cookie_str, video_url, video_id)
     # Extract the m3u8 URL from the JSON response
     m3u8_url = extract_mediasite_m3u8_url(json_data)
 
     if m3u8_url is not None:
-        print("m3u8 URL found:", m3u8_url)
+        print('m3u8 URL found:', m3u8_url)
         # Optionally, download the video with FFmpeg:
+        send_notif('Starting Download', video_url)
         download_m3u8(m3u8_url, out_path)
+        send_notif('Finished Download', video_url)
     else:
-        print("Failed to extract m3u8 URL from JSON.")
+        print('Failed to extract m3u8 URL from JSON.')
+        send_notif('Failed to extract m3u8 URL', 'Do you have valid Gatorlink credentials?')
 
 
 def main() -> None:
@@ -97,5 +108,5 @@ def main() -> None:
     download_mediasite_video(video_url, out_path)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
