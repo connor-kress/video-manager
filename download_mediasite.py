@@ -5,6 +5,7 @@ import browser_cookie3
 import requests
 import subprocess
 
+from database import insert_video, Metadata
 from util import send_notif
 
 
@@ -68,19 +69,23 @@ def extract_mediasite_m3u8_url(json_response: dict[str, Any]) -> Optional[str]:
         return None
 
 
-def download_m3u8(m3u8_url: str, out_path: Path) -> None:
+def download_m3u8(m3u8_url: str, out_path: Path, metadata: Metadata) -> None:
     """Call FFmpeg with the m3u8 URL and additional headers."""
     ffmpeg_cmd = [
         'ffmpeg',
         '-y',  # overwrite destination file without asking
         '-headers', 'Referer: https://mediasite.video.ufl.edu/\r\nOrigin: https://mediasite.video.ufl.edu',
         '-i', m3u8_url,
+        '-metadata', f'URL={metadata.url}',
+        '-metadata', f'title={metadata.title}',
+        '-metadata', f'artist={metadata.artist}',
         '-c', 'copy',
         str(out_path),
     ]
     subprocess.run(ffmpeg_cmd, check=True)
 
-def download_mediasite_video(video_url: str, out_path: Path) -> None:
+def download_mediasite_video(out_path: Path, metadata: Metadata) -> None:
+    video_url = metadata.url
     video_id = video_url.rstrip('/').split('/')[-1]
     # Extract cookies from Firefox for the domain
     cookie_str = get_cookie_string('mediasite.video.ufl.edu')
@@ -94,7 +99,9 @@ def download_mediasite_video(video_url: str, out_path: Path) -> None:
         print('m3u8 URL found:', m3u8_url)
         # Optionally, download the video with FFmpeg:
         send_notif('Starting Download', video_url)
-        download_m3u8(m3u8_url, out_path)
+        download_m3u8(m3u8_url, out_path, metadata)
+        # set_props(temp_path, file_path, metadata)
+        # insert_video(file_path, metadata)
         send_notif('Finished Download', video_url)
     else:
         print('Failed to extract m3u8 URL from JSON.')
@@ -103,9 +110,18 @@ def download_mediasite_video(video_url: str, out_path: Path) -> None:
 
 def main() -> None:
     # video_url = 'https://mediasite.video.ufl.edu/Mediasite/Play/2d38a508c97546cdadd9d5beeb9411dc1d'
-    video_url = sys.argv[1]
-    out_path = Path(sys.argv[2])
-    download_mediasite_video(video_url, out_path)
+    if len(sys.argv) != 5:
+        print("Invalid number of arguments.", file=sys.stderr)
+        print("\tFormat: <URL> <title> <artist> <file-path>", file=sys.stderr)
+        sys.exit(1)
+    metadata = Metadata(
+        url=sys.argv[1],
+        title=sys.argv[2],
+        artist=sys.argv[3],
+    )
+    out_path = Path(sys.argv[4]).absolute()
+    download_mediasite_video(out_path, metadata)
+    insert_video(out_path, metadata)
 
 
 if __name__ == '__main__':
