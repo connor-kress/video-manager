@@ -6,6 +6,7 @@ import requests
 import subprocess
 
 from database import insert_video, Metadata
+from newsboat import extract_newsboat_data
 from util import send_notif
 
 
@@ -110,16 +111,18 @@ def download_mediasite_video(out_path: Path, metadata: Metadata) -> None:
 
 def main() -> None:
     # video_url = 'https://mediasite.video.ufl.edu/Mediasite/Play/2d38a508c97546cdadd9d5beeb9411dc1d'
-    if len(sys.argv) != 5:
+    if len(sys.argv) != 3:
         print("Invalid number of arguments.", file=sys.stderr)
-        print("\tFormat: <URL> <title> <artist> <file-path>", file=sys.stderr)
+        print("\tFormat: <URL> <file-path>", file=sys.stderr)
         sys.exit(1)
+    url = sys.argv[1]
+    newsboat_data = extract_newsboat_data(url)
     metadata = Metadata(
-        url=sys.argv[1],
-        title=sys.argv[2],
-        artist=sys.argv[3],
+        url=url,
+        title=newsboat_data.title,
+        artist=newsboat_data.feed_title,
     )
-    out_path = Path(sys.argv[4]).absolute()
+    out_path = Path(sys.argv[2]).absolute()
     download_mediasite_video(out_path, metadata)
     insert_video(out_path, metadata)
 
