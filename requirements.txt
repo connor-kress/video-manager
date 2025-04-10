@@ -1,0 +1,4 @@
+browser_cookie3
+pymediainfo
+requests
+yt-dlp
