@@ -1,7 +1,7 @@
 # Video Management Suite
 
 This is a collection of scripts to manage video download and playback. I do not
-condone piracy is any way. Never download videos without explicit permission
+condone piracy in any way. Never download videos without explicit permission
 from the applicable copyright holders.
 
 ## System Dependencies
@@ -23,8 +23,8 @@ system:
     - **Windows:** Download from the official mpv website or use a package
       manager like Chocolatey (`choco install mpv`).
 
-3.  **notify-send:** Used for sending desktop notifications.
+3.  **notify-send/terminal-notifier:** Used for sending desktop notifications.
     - **Debian/Ubuntu:** `sudo apt update && sudo apt install libnotify-bin`
+    - **macOS (using Homebrew):** `brew install terminal-notifier`
     - **Fedora:** `sudo dnf install libnotify`
-    - **macOS (using Homebrew):** TODO (`brew install terminal-notifier`)
     - **Windows:** TODO (PowerShell or `win10toast`)

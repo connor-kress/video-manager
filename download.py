@@ -47,7 +47,7 @@ def set_props( in_path: Path, out_path: Path, metadata: Metadata) -> None:
         '-metadata', f'artist={metadata.artist}',
         '-codec', 'copy',
         out_path,
-    ])
+    ], check=True)
     print(f'set url prop to {metadata.url}')
 
 

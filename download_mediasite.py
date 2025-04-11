@@ -72,7 +72,7 @@ def extract_mediasite_m3u8_url(json_response: dict[str, Any]) -> Optional[str]:
 
 def download_m3u8(m3u8_url: str, out_path: Path, metadata: Metadata) -> None:
     """Call FFmpeg with the m3u8 URL and additional headers."""
-    ffmpeg_cmd = [
+    subprocess.run([
         'ffmpeg',
         '-y',  # overwrite destination file without asking
         '-headers', 'Referer: https://mediasite.video.ufl.edu/\r\nOrigin: https://mediasite.video.ufl.edu',
@@ -82,8 +82,7 @@ def download_m3u8(m3u8_url: str, out_path: Path, metadata: Metadata) -> None:
         '-metadata', f'artist={metadata.artist}',
         '-c', 'copy',
         str(out_path),
-    ]
-    subprocess.run(ffmpeg_cmd, check=True)
+    ], check=True)
 
 def download_mediasite_video(out_path: Path, metadata: Metadata) -> None:
     video_url = metadata.url
