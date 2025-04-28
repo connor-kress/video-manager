@@ -1,4 +1,5 @@
 browser_cookie3
+platformdirs
 pymediainfo
 requests
 yt-dlp

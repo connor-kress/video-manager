@@ -31,8 +31,8 @@ def get_file_paths(info: dict[str, str]) -> tuple[Path, Path]:
     else:
         file_name = sanitize_filename(f'{info["title"]}.mkv')  # force mkv
     dir_name = sanitize_filename(info.get('uploader', 'Unknown'))
-    temp_path = TEMP_DIR / dir_name / file_name
-    file_path = DEST_DIR / dir_name / file_name
+    temp_path = TEMP_DIR / 'Youtube' / dir_name / file_name
+    file_path = DEST_DIR / 'Youtube' / dir_name / file_name
     return (temp_path, file_path)
 
 
