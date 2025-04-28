@@ -5,7 +5,10 @@ import browser_cookie3
 import requests
 import subprocess
 
-from database import insert_video, Metadata
+from yt_dlp.utils import sanitize_filename
+
+from constants import VIDEOS_DIR
+from database import get_video, insert_video, Metadata
 from newsboat import extract_newsboat_data
 from util import send_notif
 
@@ -67,7 +70,6 @@ def extract_mediasite_m3u8_url(json_response: dict[str, Any]) -> Optional[str]:
             return None  # might be expired auth
         for video_url in presentation['Streams'][0]['VideoUrls']:
             if video_url.get("MimeType") == m3u8_mimetype:
-                print("Found it")
                 return video_url["Location"]
         return None
     except (KeyError, IndexError, TypeError) as e:
@@ -114,19 +116,28 @@ def download_mediasite_video(out_path: Path, metadata: Metadata) -> None:
 
 
 def main() -> None:
-    # video_url = 'https://mediasite.video.ufl.edu/Mediasite/Play/2d38a508c97546cdadd9d5beeb9411dc1d'
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 2:
         print("Invalid number of arguments.", file=sys.stderr)
-        print("\tFormat: <URL> <file-path>", file=sys.stderr)
+        print("\tFormat: <URL>", file=sys.stderr)
         sys.exit(1)
     url = sys.argv[1]
+
+    _, metadata = get_video(url)
+    if metadata is not None:
+        send_notif('Already Downloaded', metadata.title)
+        return
+
     newsboat_data = extract_newsboat_data(url)
     metadata = Metadata(
         url=url,
         title=newsboat_data.title,
         artist=newsboat_data.feed_title,
     )
-    out_path = Path(sys.argv[2]).absolute()
+    dir_name = sanitize_filename(metadata.artist)
+    file_name = f"{sanitize_filename(metadata.title)}.mkv"
+    out_path = VIDEOS_DIR / "mediasite" / dir_name / file_name
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
     download_mediasite_video(out_path, metadata)
     insert_video(out_path, metadata)
 

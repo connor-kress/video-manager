@@ -5,7 +5,7 @@ import sys
 import yt_dlp
 from yt_dlp.utils import sanitize_filename
 
-from constants import DEST_DIR, TEMP_DIR
+from constants import TEMP_DIR, VIDEOS_DIR
 from database import get_video, insert_video, Metadata
 from util import send_notif
 
@@ -32,7 +32,7 @@ def get_file_paths(info: dict[str, str]) -> tuple[Path, Path]:
         file_name = sanitize_filename(f'{info["title"]}.mkv')  # force mkv
     dir_name = sanitize_filename(info.get('uploader', 'Unknown'))
     temp_path = TEMP_DIR / 'Youtube' / dir_name / file_name
-    file_path = DEST_DIR / 'Youtube' / dir_name / file_name
+    file_path = VIDEOS_DIR / 'Youtube' / dir_name / file_name
     return (temp_path, file_path)
 
 

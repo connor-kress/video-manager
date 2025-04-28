@@ -3,11 +3,11 @@ from pathlib import Path
 import sqlite3
 from typing import Optional
 
-from constants import DEST_DIR
+from constants import VIDEOS_DIR
 
 
-DEST_DIR.mkdir(parents=True, exist_ok=True)
-conn = sqlite3.connect(DEST_DIR / 'metadata.db')
+VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
+conn = sqlite3.connect(VIDEOS_DIR / 'metadata.db')
 cur = conn.cursor()
 
 cur.execute("""
@@ -73,15 +73,11 @@ def get_video(url: str) -> tuple[Optional[Path], Optional[Metadata]]:
 def get_all_videos() -> list[tuple[Path, Metadata]]:
     cur.execute('SELECT path, url, title, artist FROM videos;')
     rows = cur.fetchall()
-    videos = list[tuple[Path, Metadata]]()
-    for row in rows:
-        assert len(row) == 4
-        videos.append((
-            Path(row[0]),
-            Metadata(
-                url=row[1],
-                title=row[2],
-                artist=row[3],
-            ),
-        ))
-    return videos
+    return [(
+        Path(row[0]),
+        Metadata(
+            url=row[1],
+            title=row[2],
+            artist=row[3],
+        ),
+    ) for row in rows]

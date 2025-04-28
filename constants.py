@@ -2,5 +2,7 @@ from pathlib import Path
 import platformdirs
 
 
-TEMP_DIR = Path(platformdirs.user_videos_dir()) / 'tmp_downloads'
-DEST_DIR = Path(platformdirs.user_videos_dir())
+VIDEOS_DIR = Path(platformdirs.user_videos_dir())
+TEMP_DIR = VIDEOS_DIR / "tmp_downloads"
+
+NEWSBOAT_DB_PATH = Path(platformdirs.user_data_dir()) / "newsboat" / "cache.db"
