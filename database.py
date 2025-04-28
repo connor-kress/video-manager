@@ -81,3 +81,10 @@ def get_all_videos() -> list[tuple[Path, Metadata]]:
             artist=row[3],
         ),
     ) for row in rows]
+
+
+def delete_video(url: str) -> None:
+    cur.execute(
+        'DELETE FROM videos WHERE url = ?;', (url,)
+    )
+    conn.commit()
