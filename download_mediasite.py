@@ -59,12 +59,17 @@ def get_player_options(
 
 def extract_mediasite_m3u8_url(json_response: dict[str, Any]) -> Optional[str]:
     """Extract the first m3u8 URL from the JSON response."""
+    m3u8_mimetype = "audio/x-mpegurl"
     try:
         presentation = json_response['d']['Presentation']
         if presentation is None:
             print('Presentation is null in json (extracting m3u8 url)')
             return None  # might be expired auth
-        return presentation['Streams'][0]['VideoUrls'][0]['Location']
+        for video_url in presentation['Streams'][0]['VideoUrls']:
+            if video_url.get("MimeType") == m3u8_mimetype:
+                print("Found it")
+                return video_url["Location"]
+        return None
     except (KeyError, IndexError, TypeError) as e:
         print(f'Unable to parse json for m3u8 url: {str(e)}')
         return None
