@@ -7,6 +7,7 @@ from yt_dlp.utils import sanitize_filename
 
 from constants import TEMP_DIR, VIDEOS_DIR
 from database import get_video, insert_video, Metadata
+from download_mediasite import download_mediasite_video, get_mediasite_metadata
 from util import send_notif
 
 
@@ -22,6 +23,11 @@ YDL_OPTS = {
 def is_zoom_link(url: str) -> bool:
     zoom_pattern = re.compile(r"https://([\w-]+\.)?zoom\.us/.*")
     return bool(zoom_pattern.match(url))
+
+
+def is_mediasite_link(url: str) -> bool:
+    mediasite_pattern = re.compile(r"https://mediasite\.video\.ufl\.edu/.*")
+    return bool(mediasite_pattern.match(url))
 
 
 def get_file_paths(info: dict[str, str]) -> tuple[Path, Path]:
@@ -60,6 +66,16 @@ def main() -> None:
     if file_path is not None:
         assert metadata is not None
         send_notif('Already Downloaded', metadata.title)
+        return
+
+    if is_mediasite_link(url):
+        out_path, metadata = get_mediasite_metadata(url)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+
+        send_notif('Starting Download', metadata.title)
+        download_mediasite_video(out_path, metadata)
+        insert_video(out_path, metadata)
+        send_notif('Finished Download', metadata.title)
         return
 
     with yt_dlp.YoutubeDL(YDL_OPTS) as ydl:

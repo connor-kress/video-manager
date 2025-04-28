@@ -104,15 +104,23 @@ def download_mediasite_video(out_path: Path, metadata: Metadata) -> None:
 
     if m3u8_url is not None:
         print('m3u8 URL found:', m3u8_url)
-        # Optionally, download the video with FFmpeg:
-        send_notif('Starting Download', video_url)
         download_m3u8(m3u8_url, out_path, metadata)
-        # set_props(temp_path, file_path, metadata)
-        # insert_video(file_path, metadata)
-        send_notif('Finished Download', video_url)
     else:
         print('Failed to extract m3u8 URL from JSON.')
         send_notif('Failed to extract m3u8 URL', 'Do you have valid Gatorlink credentials?')
+
+
+def get_mediasite_metadata(url: str) -> tuple[Path, Metadata]:
+    newsboat_data = extract_newsboat_data(url)
+    metadata = Metadata(
+        url=url,
+        title=newsboat_data.title,
+        artist=newsboat_data.feed_title,
+    )
+    dir_name = sanitize_filename(metadata.artist)
+    file_name = f"{sanitize_filename(metadata.title)}.mkv"
+    out_path = VIDEOS_DIR / "mediasite" / dir_name / file_name
+    return out_path, metadata
 
 
 def main() -> None:
@@ -127,19 +135,13 @@ def main() -> None:
         send_notif('Already Downloaded', metadata.title)
         return
 
-    newsboat_data = extract_newsboat_data(url)
-    metadata = Metadata(
-        url=url,
-        title=newsboat_data.title,
-        artist=newsboat_data.feed_title,
-    )
-    dir_name = sanitize_filename(metadata.artist)
-    file_name = f"{sanitize_filename(metadata.title)}.mkv"
-    out_path = VIDEOS_DIR / "mediasite" / dir_name / file_name
+    out_path, metadata = get_mediasite_metadata(url)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
+    send_notif('Starting Download', metadata.title)
     download_mediasite_video(out_path, metadata)
     insert_video(out_path, metadata)
+    send_notif('Finished Download', metadata.title)
 
 
 if __name__ == '__main__':
