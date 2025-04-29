@@ -5,7 +5,7 @@ from util import read_metadata
 
 def main() -> None:
     visited_urls = set[str]()
-    for path in VIDEOS_DIR.rglob('*.mkv'):
+    for path in VIDEOS_DIR.rglob("*.mkv"):
         print(path)
         metadata = read_metadata(path)
         if metadata is None:
@@ -22,5 +22,5 @@ def main() -> None:
             # TODO: Remove from database
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

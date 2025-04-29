@@ -54,7 +54,7 @@ def read_metadata(file_path: Path) -> Optional[Metadata]:
     if isinstance(media_info, str):
         return None
     for track in media_info.tracks:
-        if track.track_type == 'General':
+        if track.track_type == "General":
             metadata = Metadata(
                 url=track.url,
                 title=track.title,

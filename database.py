@@ -7,7 +7,7 @@ from constants import VIDEOS_DIR
 
 
 VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
-conn = sqlite3.connect(VIDEOS_DIR / 'metadata.db')
+conn = sqlite3.connect(VIDEOS_DIR / "metadata.db")
 cur = conn.cursor()
 
 cur.execute("""
@@ -49,11 +49,11 @@ def insert_video(path: Path, metadata: Metadata) -> None:
 
 def get_video(url: str) -> tuple[Optional[Path], Optional[Metadata]]:
     cur.execute(
-        'SELECT path, url, title, artist FROM videos WHERE url = ?;', (url,)
+        "SELECT path, url, title, artist FROM videos WHERE url = ?;", (url,)
     )
     row = cur.fetchone()
     if row is None:
-        print('Video not found')
+        print("Video not found")
         return None, None
     assert len(row) == 4
     path_str = row[0]
@@ -64,14 +64,14 @@ def get_video(url: str) -> tuple[Optional[Path], Optional[Metadata]]:
         artist=row[3],
     )
     if not path.is_file():
-        print(f'Deleted entry: {path_str}')
+        print(f"Deleted entry: {path_str}")
         return None, metadata
-    print(f'Video found: {path_str}')
+    print(f"Video found: {path_str}")
     return path, metadata
 
 
 def get_all_videos() -> list[tuple[Path, Metadata]]:
-    cur.execute('SELECT path, url, title, artist FROM videos;')
+    cur.execute("SELECT path, url, title, artist FROM videos;")
     rows = cur.fetchall()
     return [(
         Path(row[0]),
@@ -85,6 +85,6 @@ def get_all_videos() -> list[tuple[Path, Metadata]]:
 
 def delete_video(url: str) -> None:
     cur.execute(
-        'DELETE FROM videos WHERE url = ?;', (url,)
+        "DELETE FROM videos WHERE url = ?;", (url,)
     )
     conn.commit()
