@@ -108,6 +108,7 @@ def download_mediasite_video(out_path: Path, metadata: Metadata) -> None:
     else:
         print("Failed to extract m3u8 URL from JSON.")
         send_notif("Failed to extract m3u8 URL", "Do you have valid Gatorlink credentials?")
+        sys.exit(1)
 
 
 def get_mediasite_metadata(url: str) -> tuple[Path, Metadata]:

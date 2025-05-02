@@ -6,7 +6,7 @@ import sys
 import yt_dlp
 from yt_dlp.utils import sanitize_filename
 
-from constants import TEMP_DIR, VIDEOS_DIR, YDL_OPTS
+from constants import VIDEOS_DIR
 from database import get_video, insert_video, Metadata
 from download_mediasite import download_mediasite_video, get_mediasite_metadata
 from util import send_notif
@@ -30,19 +30,6 @@ def get_link_type(url: str) -> LinkType:
         return LinkType.DEFAULT
 
 
-def get_file_paths(
-    info: dict[str, str], link_type: LinkType
-) -> tuple[Path, Path]:
-    if link_type == LinkType.ZOOM:
-        file_name = sanitize_filename(f"zoom-{info["id"]}.mkv")  # force mkv
-    else:
-        file_name = sanitize_filename(f"{info["title"]}.mkv")  # force mkv
-    dir_name = sanitize_filename(info.get("uploader", "Unknown"))
-    temp_path = TEMP_DIR / "Youtube" / dir_name / file_name
-    file_path = VIDEOS_DIR / "Youtube" / dir_name / file_name
-    return (temp_path, file_path)
-
-
 def set_props(in_path: Path, out_path: Path, metadata: Metadata) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run([
@@ -58,51 +45,82 @@ def set_props(in_path: Path, out_path: Path, metadata: Metadata) -> None:
     print(f"set url prop to {metadata.url}")
 
 
+def get_file_path_from_info(info: dict[str, str], link_type: LinkType) -> Path:
+    if link_type == LinkType.ZOOM:
+        base_name = sanitize_filename(f"zoom-{info["id"]}")
+    else:
+        base_name = sanitize_filename(info["title"])
+    dir_name = sanitize_filename(info.get("uploader", "Unknown"))
+    file_path = VIDEOS_DIR / "Youtube" / dir_name / (base_name + ".mkv")
+    return file_path
+
+
+def get_temp_path(file_path: Path) -> Path:
+    return file_path.with_suffix(".tmp" + file_path.suffix)
+
+
+def get_metadata(url: str) -> tuple[Path, Metadata]:
+    link_type = get_link_type(url)
+    with yt_dlp.YoutubeDL() as ydl:
+        try:
+            info = ydl.extract_info(url, download=False)
+        except yt_dlp.DownloadError as e:
+            send_notif("Error", f"Error downloading video: {url} {e.msg}")
+            sys.exit(1)
+    if info is None:
+        send_notif("Error", f"Error locating video: {url}")
+        sys.exit(1)
+    metadata = Metadata(
+        url=url,
+        title = info.get("title", info.get("id", "Unknown")),
+        artist = info.get("uploader", "Unknown"),
+    )
+    file_path = get_file_path_from_info(info, link_type)
+    return file_path, metadata
+
+
+def download_with_yt_dlp(metadata: Metadata, file_path: Path) -> None:
+    ydl_opts = {
+        "format": "bestvideo[height<=2160]+bestaudio/best",
+        "merge_output_format": "mkv",
+        "outtmpl": str(file_path),
+        "embed-metadata": True,
+        "embed-chapters": True,
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        try:
+            ydl.download([metadata.url])
+        except yt_dlp.DownloadError as e:
+            send_notif(
+                "Error", f"Error downloading video: {metadata.url} {e.msg}"
+            )
+            sys.exit(1)
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         send_notif("Error", f"Invalid arguments: {sys.argv[1:]}")
         sys.exit(1)
     url = sys.argv[1]
-    link_type = get_link_type(url)
     file_path, metadata = get_video(url)
     if file_path is not None:
         assert metadata is not None
         send_notif("Already Downloaded", metadata.title)
         return
 
+    link_type = get_link_type(url)
     if link_type == LinkType.MEDIASITE:
-        out_path, metadata = get_mediasite_metadata(url)
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-
+        file_path, metadata = get_mediasite_metadata(url)
+        file_path.parent.mkdir(parents=True, exist_ok=True)
         send_notif("Starting Download", metadata.title)
-        download_mediasite_video(out_path, metadata)
-        insert_video(out_path, metadata)
-        send_notif("Finished Download", metadata.title)
-        return
-
-    with yt_dlp.YoutubeDL(YDL_OPTS) as ydl:
-        try:
-            info = ydl.extract_info(url, download=False)
-        except yt_dlp.DownloadError as e:
-            send_notif("Error", f"Error downloading video: {url} {e.msg}")
-            sys.exit(1)
-        if info is None:
-            send_notif("Error", f"Error locating video: {url}")
-            sys.exit(1)
-        metadata = Metadata(
-            url=url,
-            title = info.get("title", info.get("id", "Unknown")),
-            artist = info.get("uploader", "Unknown"),
-        )
-        temp_path, file_path = get_file_paths(info, link_type)
-        ydl.params["outtmpl"]["default"] = str(temp_path)
+        download_mediasite_video(file_path, metadata)
+    else:
+        file_path, metadata = get_metadata(url)
         send_notif("Starting Download", metadata.title)
-        try:
-            ydl.download([metadata.url])
-        except yt_dlp.DownloadError as e:
-            send_notif("Error", f"Error downloading video: {url} {e.msg}")
-            sys.exit(1)
-    set_props(temp_path, file_path, metadata)
+        temp_path = get_temp_path(file_path)
+        download_with_yt_dlp(metadata, temp_path)
+        set_props(temp_path, file_path, metadata)
+        temp_path.unlink()
     insert_video(file_path, metadata)
     send_notif("Finished Download", metadata.title)
 
