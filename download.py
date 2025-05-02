@@ -1,3 +1,4 @@
+from enum import Enum, auto
 from pathlib import Path
 import re
 import subprocess
@@ -5,34 +6,34 @@ import sys
 import yt_dlp
 from yt_dlp.utils import sanitize_filename
 
-from constants import TEMP_DIR, VIDEOS_DIR
+from constants import TEMP_DIR, VIDEOS_DIR, YDL_OPTS
 from database import get_video, insert_video, Metadata
 from download_mediasite import download_mediasite_video, get_mediasite_metadata
 from util import send_notif
 
 
-YDL_OPTS = {
-    "format": "bestvideo[height<=2160]+bestaudio/best",
-    "merge_output_format": "mkv",
-    "outtmpl": str(TEMP_DIR / "%(uploader)s" / "%(title)s.%(ext)s"),
-    "embed-metadata": True,
-    "embed-chapters": True,
-}
+class LinkType(Enum):
+    ZOOM = auto()
+    MEDIASITE = auto()
+    YOUTUBE = auto()
+    DEFAULT = auto()
 
 
-def is_zoom_link(url: str) -> bool:
+def get_link_type(url: str) -> LinkType:
     zoom_pattern = re.compile(r"https://([\w-]+\.)?zoom\.us/.*")
-    return bool(zoom_pattern.match(url))
-
-
-def is_mediasite_link(url: str) -> bool:
     mediasite_pattern = re.compile(r"https://mediasite\.video\.ufl\.edu/.*")
-    return bool(mediasite_pattern.match(url))
+    if zoom_pattern.match(url):
+        return LinkType.ZOOM
+    elif mediasite_pattern.match(url):
+        return LinkType.MEDIASITE
+    else:
+        return LinkType.DEFAULT
 
 
-def get_file_paths(info: dict[str, str]) -> tuple[Path, Path]:
-    url = info["original_url"]
-    if is_zoom_link(url):
+def get_file_paths(
+    info: dict[str, str], link_type: LinkType
+) -> tuple[Path, Path]:
+    if link_type == LinkType.ZOOM:
         file_name = sanitize_filename(f"zoom-{info["id"]}.mkv")  # force mkv
     else:
         file_name = sanitize_filename(f"{info["title"]}.mkv")  # force mkv
@@ -42,7 +43,7 @@ def get_file_paths(info: dict[str, str]) -> tuple[Path, Path]:
     return (temp_path, file_path)
 
 
-def set_props( in_path: Path, out_path: Path, metadata: Metadata) -> None:
+def set_props(in_path: Path, out_path: Path, metadata: Metadata) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run([
         "ffmpeg",
@@ -62,13 +63,14 @@ def main() -> None:
         send_notif("Error", f"Invalid arguments: {sys.argv[1:]}")
         sys.exit(1)
     url = sys.argv[1]
+    link_type = get_link_type(url)
     file_path, metadata = get_video(url)
     if file_path is not None:
         assert metadata is not None
         send_notif("Already Downloaded", metadata.title)
         return
 
-    if is_mediasite_link(url):
+    if link_type == LinkType.MEDIASITE:
         out_path, metadata = get_mediasite_metadata(url)
         out_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -92,7 +94,7 @@ def main() -> None:
             title = info.get("title", info.get("id", "Unknown")),
             artist = info.get("uploader", "Unknown"),
         )
-        temp_path, file_path = get_file_paths(info)
+        temp_path, file_path = get_file_paths(info, link_type)
         ydl.params["outtmpl"]["default"] = str(temp_path)
         send_notif("Starting Download", metadata.title)
         try:
