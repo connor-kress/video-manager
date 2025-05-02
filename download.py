@@ -9,6 +9,7 @@ from yt_dlp.utils import sanitize_filename
 from constants import VIDEOS_DIR
 from database import get_video, insert_video, Metadata
 from download_mediasite import download_mediasite_video, get_mediasite_metadata
+from newsboat import get_metadata_from_newsboat
 from util import send_notif
 
 
@@ -59,7 +60,7 @@ def get_temp_path(file_path: Path) -> Path:
     return file_path.with_suffix(".tmp" + file_path.suffix)
 
 
-def get_metadata(url: str) -> tuple[Path, Metadata]:
+def get_metadata_with_yt_dlp(url: str) -> tuple[Path, Metadata]:
     link_type = get_link_type(url)
     with yt_dlp.YoutubeDL() as ydl:
         try:
@@ -77,6 +78,18 @@ def get_metadata(url: str) -> tuple[Path, Metadata]:
     )
     file_path = get_file_path_from_info(info, link_type)
     return file_path, metadata
+
+
+def get_metadata(url: str) -> tuple[Path, Metadata]:
+    metadata = get_metadata_from_newsboat(url)
+    if metadata is None:
+        return get_metadata_with_yt_dlp(url)
+
+    dir_name = sanitize_filename(metadata.artist)
+    file_name = f"{sanitize_filename(metadata.title)}.mkv"
+    file_path = VIDEOS_DIR / "Youtube" / dir_name / file_name
+    return file_path, metadata
+
 
 
 def download_with_yt_dlp(metadata: Metadata, file_path: Path) -> None:

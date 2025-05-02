@@ -9,7 +9,7 @@ from yt_dlp.utils import sanitize_filename
 
 from constants import VIDEOS_DIR
 from database import get_video, insert_video, Metadata
-from newsboat import extract_newsboat_data
+from newsboat import get_metadata_from_newsboat
 from util import send_notif
 
 
@@ -112,16 +112,15 @@ def download_mediasite_video(out_path: Path, metadata: Metadata) -> None:
 
 
 def get_mediasite_metadata(url: str) -> tuple[Path, Metadata]:
-    newsboat_data = extract_newsboat_data(url)
-    metadata = Metadata(
-        url=url,
-        title=newsboat_data.title,
-        artist=newsboat_data.feed_title,
-    )
+    metadata = get_metadata_from_newsboat(url)
+    if metadata is None:
+        print("Newsboat data not found")
+        send_notif("Error extracting metadata", "Newsboat data not found")
+        sys.exit(1)
     dir_name = sanitize_filename(metadata.artist)
     file_name = f"{sanitize_filename(metadata.title)}.mkv"
-    out_path = VIDEOS_DIR / "mediasite" / dir_name / file_name
-    return out_path, metadata
+    file_path = VIDEOS_DIR / "mediasite" / dir_name / file_name
+    return file_path, metadata
 
 
 def main() -> None:

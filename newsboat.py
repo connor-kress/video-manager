@@ -1,8 +1,10 @@
 import sqlite3
 import sys
 from dataclasses import dataclass
+from typing import Optional
 
 from constants import NEWSBOAT_DB_PATH
+from database import Metadata
 
 
 @dataclass
@@ -13,23 +15,38 @@ class NewsboatData:
     feed_title: str
 
 
-def extract_newsboat_data_raw(cur: sqlite3.Cursor, url: str) -> NewsboatData:
+def extract_newsboat_data_raw(
+    cur: sqlite3.Cursor, url: str
+) -> Optional[NewsboatData]:
     cur.execute("""
     SELECT i.title, i.author, f.title AS feed_title
     FROM rss_item i
     JOIN rss_feed f ON i.feedurl = f.rssurl
     WHERE i.url = ?
     """, (url,))
-    title, author, feed_title = cur.fetchone()
+    row = cur.fetchone()
+    if row is None:
+        return None
+    title, author, feed_title = row
     metadata = NewsboatData(url, title, author, feed_title)
-    print(metadata)
     return metadata
 
 
-def extract_newsboat_data(url: str) -> NewsboatData:
+def extract_newsboat_data(url: str) -> Optional[NewsboatData]:
     with sqlite3.connect(NEWSBOAT_DB_PATH) as conn:
         cur = conn.cursor()
         return extract_newsboat_data_raw(cur, url)
+
+
+def get_metadata_from_newsboat(url: str) -> Optional[Metadata]:
+    newsboat_data = extract_newsboat_data(url)
+    if newsboat_data is None:
+        return None
+    return Metadata(
+        url=url,
+        title=newsboat_data.title,
+        artist=newsboat_data.feed_title,
+    )
 
 
 def main() -> None:
