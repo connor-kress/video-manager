@@ -33,6 +33,8 @@ def extract_newsboat_data_raw(
 
 
 def extract_newsboat_data(url: str) -> Optional[NewsboatData]:
+    if not NEWSBOAT_DB_PATH.is_file():
+        return None
     with sqlite3.connect(NEWSBOAT_DB_PATH) as conn:
         cur = conn.cursor()
         return extract_newsboat_data_raw(cur, url)

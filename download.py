@@ -48,7 +48,7 @@ def set_props(in_path: Path, out_path: Path, metadata: Metadata) -> None:
 
 def get_file_path_from_info(info: dict[str, str], link_type: LinkType) -> Path:
     if link_type == LinkType.ZOOM:
-        base_name = sanitize_filename(f"zoom-{info["id"]}")
+        base_name = sanitize_filename(f'zoom-{info["id"]}')
     else:
         base_name = sanitize_filename(info["title"])
     dir_name = sanitize_filename(info.get("uploader", "Unknown"))
