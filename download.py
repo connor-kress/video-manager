@@ -20,6 +20,16 @@ class LinkType(Enum):
     DEFAULT = auto()
 
 
+def get_encoding_args(link_type: LinkType) -> list[str]:
+    if link_type == LinkType.ZOOM:
+        return [
+            "-c:v", "libx264",
+            "-c:a", "copy",
+        ]
+    else:
+        return ["-codec", "copy"]
+
+
 def get_link_type(url: str) -> LinkType:
     zoom_pattern = re.compile(r"https://([\w-]+\.)?zoom\.us/.*")
     mediasite_pattern = re.compile(r"https://mediasite\.video\.ufl\.edu/.*")
@@ -31,7 +41,12 @@ def get_link_type(url: str) -> LinkType:
         return LinkType.DEFAULT
 
 
-def set_props(in_path: Path, out_path: Path, metadata: Metadata) -> None:
+def set_props(
+    in_path: Path,
+    out_path: Path,
+    metadata: Metadata,
+    link_type: LinkType,
+) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run([
         "ffmpeg",
@@ -40,7 +55,7 @@ def set_props(in_path: Path, out_path: Path, metadata: Metadata) -> None:
         "-metadata", f"URL={metadata.url}",
         "-metadata", f"title={metadata.title}",
         "-metadata", f"artist={metadata.artist}",
-        "-codec", "copy",
+        *get_encoding_args(link_type),
         out_path,
     ], check=True)
     print(f"set url prop to {metadata.url}")
@@ -126,13 +141,24 @@ def main() -> None:
         file_path, metadata = get_mediasite_metadata(url)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         send_notif("Starting Download", metadata.title)
-        download_mediasite_video(file_path, metadata)
+        try:
+            download_mediasite_video(file_path, metadata)
+        except KeyboardInterrupt:
+            send_notif("Canceled Download", metadata.title)
+            file_path.unlink(missing_ok=True)
+            sys.exit(1)
     else:
         file_path, metadata = get_metadata(url)
         send_notif("Starting Download", metadata.title)
         temp_path = get_temp_path(file_path)
-        download_with_yt_dlp(metadata, temp_path)
-        set_props(temp_path, file_path, metadata)
+        try:
+            download_with_yt_dlp(metadata, temp_path)
+            set_props(temp_path, file_path, metadata, link_type)
+        except KeyboardInterrupt:
+            send_notif("Canceled Download", metadata.title)
+            temp_path.unlink(missing_ok=True)
+            file_path.unlink(missing_ok=True)
+            sys.exit(1)
         temp_path.unlink()
     insert_video(file_path, metadata)
     send_notif("Finished Download", metadata.title)
