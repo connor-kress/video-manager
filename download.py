@@ -6,7 +6,8 @@ import sys
 import yt_dlp
 from yt_dlp.utils import sanitize_filename
 
-from constants import VIDEOS_DIR
+from config import Config, load_config
+from constants import CONFIG_PATH, VIDEOS_DIR
 from database import get_video, insert_video, Metadata
 from download_mediasite import download_mediasite_video, get_mediasite_metadata
 from newsboat import get_metadata_from_newsboat
@@ -20,8 +21,8 @@ class LinkType(Enum):
     DEFAULT = auto()
 
 
-def get_encoding_args(link_type: LinkType) -> list[str]:
-    if link_type == LinkType.ZOOM:
+def get_encoding_args(link_type: LinkType, config: Config) -> list[str]:
+    if link_type == LinkType.ZOOM and config.features.enable_zoom_reencoding:
         return [
             "-c:v", "libx264",
             "-c:a", "copy",
@@ -46,7 +47,9 @@ def set_props(
     out_path: Path,
     metadata: Metadata,
     link_type: LinkType,
+    config: Config,
 ) -> None:
+    encoding_args = get_encoding_args(link_type, config)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run([
         "ffmpeg",
@@ -55,7 +58,7 @@ def set_props(
         "-metadata", f"URL={metadata.url}",
         "-metadata", f"title={metadata.title}",
         "-metadata", f"artist={metadata.artist}",
-        *get_encoding_args(link_type),
+        *encoding_args,
         out_path,
     ], check=True)
     print(f"set url prop to {metadata.url}")
@@ -136,6 +139,10 @@ def main() -> None:
         send_notif("Already Downloaded", metadata.title)
         return
 
+    config = load_config(CONFIG_PATH)
+    if config is None:
+        sys.exit(1)
+
     link_type = get_link_type(url)
     if link_type == LinkType.MEDIASITE:
         file_path, metadata = get_mediasite_metadata(url)
@@ -153,7 +160,7 @@ def main() -> None:
         temp_path = get_temp_path(file_path)
         try:
             download_with_yt_dlp(metadata, temp_path)
-            set_props(temp_path, file_path, metadata, link_type)
+            set_props(temp_path, file_path, metadata, link_type, config)
         except KeyboardInterrupt:
             send_notif("Canceled Download", metadata.title)
             temp_path.unlink(missing_ok=True)

@@ -1,5 +1,7 @@
 browser_cookie3
 platformdirs
+pydantic
 pymediainfo
 requests
+toml
 yt-dlp
