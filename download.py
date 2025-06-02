@@ -9,7 +9,7 @@ from yt_dlp.utils import sanitize_filename
 from config import Config, load_config
 from constants import CONFIG_PATH, VIDEOS_DIR
 from database import get_video, insert_video, Metadata
-from download_mediasite import download_mediasite_video, get_mediasite_metadata
+from mediasite import download_mediasite_video, get_mediasite_metadata
 from newsboat import get_metadata_from_newsboat
 from util import send_notif
 
@@ -17,8 +17,14 @@ from util import send_notif
 class LinkType(Enum):
     ZOOM = auto()
     MEDIASITE = auto()
-    YOUTUBE = auto()
     DEFAULT = auto()
+
+
+# def get_category_name(link_type: LinkType) -> str:
+#     match link_type:
+#         case LinkType.ZOOM: return "Zoom"
+#         case LinkType.MEDIASITE: return "Mediasite"
+#         case LinkType.DEFAULT: return "Youtube"
 
 
 def get_encoding_args(link_type: LinkType, config: Config) -> list[str]:
@@ -99,6 +105,10 @@ def get_metadata_with_yt_dlp(url: str) -> tuple[Path, Metadata]:
 
 
 def get_metadata(url: str) -> tuple[Path, Metadata]:
+    link_type = get_link_type(url)
+    if link_type == LinkType.MEDIASITE:
+        return get_mediasite_metadata(url)
+
     metadata = get_metadata_from_newsboat(url)
     if metadata is None:
         return get_metadata_with_yt_dlp(url)
@@ -128,11 +138,30 @@ def download_with_yt_dlp(metadata: Metadata, file_path: Path) -> None:
             sys.exit(1)
 
 
+def download_video(file_path: Path, metadata: Metadata, config: Config) -> None:
+    """Downloads a video with the appropriate method given the
+    link type and user config.
+    """
+    link_type = get_link_type(metadata.url)
+    if link_type == LinkType.MEDIASITE:
+        download_mediasite_video(file_path, metadata)
+    else:
+        temp_path = get_temp_path(file_path)
+        try:
+            download_with_yt_dlp(metadata, temp_path)
+            set_props(temp_path, file_path, metadata, link_type, config)
+        except KeyboardInterrupt as err:
+            temp_path.unlink(missing_ok=True)
+            raise err
+        temp_path.unlink()
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         send_notif("Error", f"Invalid arguments: {sys.argv[1:]}")
         sys.exit(1)
     url = sys.argv[1]
+
     file_path, metadata = get_video(url)
     if file_path is not None:
         assert metadata is not None
@@ -143,30 +172,17 @@ def main() -> None:
     if config is None:
         sys.exit(1)
 
-    link_type = get_link_type(url)
-    if link_type == LinkType.MEDIASITE:
-        file_path, metadata = get_mediasite_metadata(url)
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        send_notif("Starting Download", metadata.title)
-        try:
-            download_mediasite_video(file_path, metadata)
-        except KeyboardInterrupt:
-            send_notif("Canceled Download", metadata.title)
-            file_path.unlink(missing_ok=True)
-            sys.exit(1)
-    else:
-        file_path, metadata = get_metadata(url)
-        send_notif("Starting Download", metadata.title)
-        temp_path = get_temp_path(file_path)
-        try:
-            download_with_yt_dlp(metadata, temp_path)
-            set_props(temp_path, file_path, metadata, link_type, config)
-        except KeyboardInterrupt:
-            send_notif("Canceled Download", metadata.title)
-            temp_path.unlink(missing_ok=True)
-            file_path.unlink(missing_ok=True)
-            sys.exit(1)
-        temp_path.unlink()
+    file_path, metadata = get_metadata(url)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+
+    send_notif("Starting Download", metadata.title)
+    try:
+        download_video(file_path, metadata, config)
+    except KeyboardInterrupt:
+        send_notif("Canceled Download", metadata.title)
+        file_path.unlink(missing_ok=True)
+        sys.exit(1)
+
     insert_video(file_path, metadata)
     send_notif("Finished Download", metadata.title)
 
