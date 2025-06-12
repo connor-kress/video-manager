@@ -10,7 +10,10 @@ from config import Config, load_config
 from constants import CONFIG_PATH, VIDEOS_DIR
 from database import get_video, insert_video, Metadata
 from mediasite import download_mediasite_video, get_mediasite_metadata
-from newsboat import get_metadata_from_newsboat
+from newsboat import (
+    get_feed_and_items_from_newsboat,
+    get_metadata_from_newsboat,
+)
 from util import send_notif
 
 
@@ -156,12 +159,7 @@ def download_video(file_path: Path, metadata: Metadata, config: Config) -> None:
         temp_path.unlink()
 
 
-def main() -> None:
-    if len(sys.argv) != 2:
-        send_notif("Error", f"Invalid arguments: {sys.argv[1:]}")
-        sys.exit(1)
-    url = sys.argv[1]
-
+def handle_single_video_download(url: str):
     file_path, metadata = get_video(url)
     if file_path is not None:
         assert metadata is not None
@@ -185,6 +183,29 @@ def main() -> None:
 
     insert_video(file_path, metadata)
     send_notif("Finished Download", metadata.title)
+
+
+def handle_feed_download(feed_url: str):
+    feed, items = get_feed_and_items_from_newsboat(feed_url)
+    if feed is None:
+        send_notif("Error", f"Could not find feed: {feed_url}")
+        sys.exit(1)
+    print(f"Found feed: {feed.title}")
+    for item in items:
+        print(f"\t{item.title}")
+    print("\nTODO: implement bulk downloading")
+
+
+def main() -> None:
+    if len(sys.argv) == 2:
+        url = sys.argv[1]
+        handle_single_video_download(url)
+    elif len(sys.argv) == 3 and sys.argv[1] == "--feed":
+        feed_url = sys.argv[2]
+        handle_feed_download(feed_url)
+    else:
+        send_notif("Error", f"Invalid arguments: {sys.argv[1:]}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

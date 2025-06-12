@@ -22,6 +22,14 @@ class NewsboatFeed:
     title: str
 
 
+def item_to_video_metadata(item: NewsboatItem) -> Metadata:
+    return Metadata(
+        url=item.url,
+        title=item.title,
+        artist=item.feed_title,
+    )
+
+
 def fetch_newsboat_item_raw(
     cur: sqlite3.Cursor, url: str
 ) -> Optional[NewsboatItem]:
@@ -107,11 +115,16 @@ def get_metadata_from_newsboat(url: str) -> Optional[Metadata]:
     item = fetch_newsboat_item(url)
     if item is None:
         return None
-    return Metadata(
-        url=url,
-        title=item.title,
-        artist=item.feed_title,
-    )
+    return item_to_video_metadata(item)
+
+
+def get_feed_and_items_from_newsboat(
+    feed_url: str
+) -> tuple[Optional[NewsboatFeed], list[Metadata]]:
+    feed, items = fetch_newsboat_feed_and_items(feed_url)
+    if feed is None:
+        return None, []
+    return feed, list(map(item_to_video_metadata, items))
 
 
 def main() -> None:
