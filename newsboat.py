@@ -15,6 +15,13 @@ class NewsboatData:
     feed_title: str
 
 
+@dataclass
+class NewsboatFeed:
+    url: str
+    rssurl: str
+    title: str
+
+
 def extract_newsboat_data_raw(
     cur: sqlite3.Cursor, url: str
 ) -> Optional[NewsboatData]:
@@ -28,8 +35,27 @@ def extract_newsboat_data_raw(
     if row is None:
         return None
     title, author, feed_title = row
-    metadata = NewsboatData(url, title, author, feed_title)
+    metadata = NewsboatData(
+        url=url, title=title,
+        author=author, feed_title=feed_title,
+    )
     return metadata
+
+
+def extract_newsboat_feed_raw(
+    cur: sqlite3.Cursor, url: str
+) -> Optional[NewsboatFeed]:
+    cur.execute("""
+    SELECT title, rssurl
+    FROM rss_feed
+    WHERE url = ?
+    """, (url,))
+    row = cur.fetchone()
+    if row is None:
+        return None
+    title, rssurl = row
+    feed = NewsboatFeed(url=url, rssurl=rssurl, title=title)
+    return feed
 
 
 def extract_newsboat_data(url: str) -> Optional[NewsboatData]:
@@ -38,6 +64,14 @@ def extract_newsboat_data(url: str) -> Optional[NewsboatData]:
     with sqlite3.connect(NEWSBOAT_DB_PATH) as conn:
         cur = conn.cursor()
         return extract_newsboat_data_raw(cur, url)
+
+
+def extract_newsboat_feed(url: str) -> Optional[NewsboatFeed]:
+    if not NEWSBOAT_DB_PATH.is_file():
+        return None
+    with sqlite3.connect(NEWSBOAT_DB_PATH) as conn:
+        cur = conn.cursor()
+        return extract_newsboat_feed_raw(cur, url)
 
 
 def get_metadata_from_newsboat(url: str) -> Optional[Metadata]:
