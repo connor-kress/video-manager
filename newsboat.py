@@ -8,7 +8,7 @@ from database import Metadata
 
 
 @dataclass
-class NewsboatData:
+class NewsboatItem:
     url: str
     title: str
     author: str
@@ -22,9 +22,9 @@ class NewsboatFeed:
     title: str
 
 
-def extract_newsboat_data_raw(
+def fetch_newsboat_item_raw(
     cur: sqlite3.Cursor, url: str
-) -> Optional[NewsboatData]:
+) -> Optional[NewsboatItem]:
     cur.execute("""
     SELECT i.title, i.author, f.title AS feed_title
     FROM rss_item i
@@ -35,14 +35,37 @@ def extract_newsboat_data_raw(
     if row is None:
         return None
     title, author, feed_title = row
-    metadata = NewsboatData(
-        url=url, title=title,
-        author=author, feed_title=feed_title,
+    item = NewsboatItem(
+        url=url,
+        title=title,
+        author=author,
+        feed_title=feed_title,
     )
-    return metadata
+    return item
 
 
-def extract_newsboat_feed_raw(
+def fetch_newsboat_items_by_feed_raw(
+    cur: sqlite3.Cursor, feed: NewsboatFeed
+) -> list[NewsboatItem]:
+    cur.execute("""
+    SELECT url, title, author
+    FROM rss_item
+    WHERE feedurl = ?
+    """, (feed.rssurl,))
+    rows = cur.fetchall()
+    items = []
+    for row in rows:
+        url, title, author = row
+        items.append(NewsboatItem(
+            url=url,
+            title=title,
+            author=author,
+            feed_title=feed.title,
+        ))
+    return items
+
+
+def fetch_newsboat_feed_raw(
     cur: sqlite3.Cursor, url: str
 ) -> Optional[NewsboatFeed]:
     cur.execute("""
@@ -58,30 +81,36 @@ def extract_newsboat_feed_raw(
     return feed
 
 
-def extract_newsboat_data(url: str) -> Optional[NewsboatData]:
+def fetch_newsboat_item(url: str) -> Optional[NewsboatItem]:
     if not NEWSBOAT_DB_PATH.is_file():
         return None
     with sqlite3.connect(NEWSBOAT_DB_PATH) as conn:
         cur = conn.cursor()
-        return extract_newsboat_data_raw(cur, url)
+        return fetch_newsboat_item_raw(cur, url)
 
 
-def extract_newsboat_feed(url: str) -> Optional[NewsboatFeed]:
+def fetch_newsboat_feed_and_items(
+    feed_url: str
+) -> tuple[Optional[NewsboatFeed], list[NewsboatItem]]:
     if not NEWSBOAT_DB_PATH.is_file():
-        return None
+        return None, []
     with sqlite3.connect(NEWSBOAT_DB_PATH) as conn:
         cur = conn.cursor()
-        return extract_newsboat_feed_raw(cur, url)
+        feed = fetch_newsboat_feed_raw(cur, feed_url)
+        if feed is None:
+            return None, []
+        items = fetch_newsboat_items_by_feed_raw(cur, feed)
+        return feed, items
 
 
 def get_metadata_from_newsboat(url: str) -> Optional[Metadata]:
-    newsboat_data = extract_newsboat_data(url)
-    if newsboat_data is None:
+    item = fetch_newsboat_item(url)
+    if item is None:
         return None
     return Metadata(
         url=url,
-        title=newsboat_data.title,
-        artist=newsboat_data.feed_title,
+        title=item.title,
+        artist=item.feed_title,
     )
 
 
@@ -90,8 +119,8 @@ def main() -> None:
         print("Please provide one video url.", file=sys.stderr)
         sys.exit(1)
     url = sys.argv[1]
-    metadata = extract_newsboat_data(url)
-    print(metadata)
+    item = fetch_newsboat_item(url)
+    print(item)
 
 
 if __name__ == "__main__":
