@@ -191,29 +191,35 @@ def handle_feed_download(feed_url: str):
         send_notif("Error", f"Could not find feed: {feed_url}")
         sys.exit(1)
 
+    config = load_config(CONFIG_PATH)
+    if config is None:
+        sys.exit(1)
+
     items = []
     for item in all_items:
-        file_path, metadata = get_video(item.url)
-        if file_path is not None:
-            assert metadata is not None
-        else:
+        file_path, _ = get_video(item.url)
+        if file_path is None:
             items.append(item)
 
     if len(items) == 0:
-        send_notif(
-            "All downloaded",
-            f"{feed.title} ({len(all_items)} videos)",
-        )
+        send_notif("All downloaded", f"{feed.title} ({len(all_items)} videos)")
         sys.exit(1)
 
-    send_notif(
-        "Starting Bulk Download",
-        f"{feed.title} ({len(items)}/{len(all_items)} remaining)",
-    )
+    send_notif("Starting Bulk Download", f"{feed.title} ({len(items)} videos)")
+    for i, item in enumerate(items):
+        print(f"\tDownloading: {item.title}...")
+        file_path, metadata = get_metadata(item.url)
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            download_video(file_path, metadata, config)
+        except KeyboardInterrupt:
+            rem = len(items) - i
+            send_notif("Canceled Bulk Download", f"{rem}/{len(items)} remaining")
+            file_path.unlink(missing_ok=True)
+            sys.exit(1)
+        insert_video(file_path, metadata)
 
-    for item in items:
-        print(f"\t{item.title}")
-    print("\nTODO: implement bulk downloading")
+    send_notif("Finished Bulk Download", f"{feed.title} ({len(items)} videos)")
 
 
 def main() -> None:
