@@ -186,11 +186,31 @@ def handle_single_video_download(url: str):
 
 
 def handle_feed_download(feed_url: str):
-    feed, items = get_feed_and_items_from_newsboat(feed_url)
+    feed, all_items = get_feed_and_items_from_newsboat(feed_url)
     if feed is None:
         send_notif("Error", f"Could not find feed: {feed_url}")
         sys.exit(1)
-    print(f"Found feed: {feed.title}")
+
+    items = []
+    for item in all_items:
+        file_path, metadata = get_video(item.url)
+        if file_path is not None:
+            assert metadata is not None
+        else:
+            items.append(item)
+
+    if len(items) == 0:
+        send_notif(
+            "All downloaded",
+            f"{feed.title} ({len(all_items)} videos)",
+        )
+        sys.exit(1)
+
+    send_notif(
+        "Starting Bulk Download",
+        f"{feed.title} ({len(items)}/{len(all_items)} remaining)",
+    )
+
     for item in items:
         print(f"\t{item.title}")
     print("\nTODO: implement bulk downloading")

@@ -53,7 +53,7 @@ def get_video(url: str) -> tuple[Optional[Path], Optional[Metadata]]:
     )
     row = cur.fetchone()
     if row is None:
-        print("Video not found")
+        # print("Video not found")
         return None, None
     assert len(row) == 4
     path_str = row[0]
@@ -64,9 +64,9 @@ def get_video(url: str) -> tuple[Optional[Path], Optional[Metadata]]:
         artist=row[3],
     )
     if not path.is_file():
-        print(f"Deleted entry: {path_str}")
+        # print(f"Deleted entry: {path_str}")
         return None, metadata
-    print(f"Video found: {path_str}")
+    # print(f"Video found: {path_str}")
     return path, metadata
 
 

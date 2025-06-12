@@ -46,7 +46,8 @@ def send_notif(title: str, msg: str) -> None:
             print(f"Error running terminal-notifier: {e}", file=sys.stderr)
 
     else:  # system == "Windows":
-        print(f"{title}: {msg}")
+        pass
+    print(f"{title}: {msg}")
 
 
 def read_metadata(file_path: Path) -> Optional[Metadata]:
