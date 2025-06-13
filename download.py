@@ -181,18 +181,19 @@ def handle_bulk_download(feed_url: str):
             items.append(item)
 
     if len(items) == 0:
-        send_notif("All downloaded", f"{feed.title} ({len(all_items)} videos)")
+        send_notif("All Downloaded", f"{feed.title} ({len(all_items)} videos)")
         sys.exit(1)
 
     send_notif("Starting Bulk Download", f"{feed.title} ({len(items)} videos)")
     skipped = 0
     for i, item in enumerate(items):
-        print(f"\tDownloading: {item.title}...")
         file_path, metadata = get_metadata(item.url)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         if not try_reserve_url(metadata.url):
+            print(f"\nSkipping: {item.title} ({i+1}/{len(items)})\n")
             skipped += 1
             continue
+        print(f"\nDownloading: {item.title} ({i+1}/{len(items)})\n")
         try:
             download_video(file_path, metadata, config)
         except KeyboardInterrupt:
@@ -219,7 +220,7 @@ def main() -> None:
         feed_url = sys.argv[2]
         handle_bulk_download(feed_url)
     else:
-        send_notif("Error", f"Invalid arguments: {sys.argv[1:]}")
+        send_notif("Error", f"Invalid Arguments: {sys.argv[1:]}")
         sys.exit(1)
 
 

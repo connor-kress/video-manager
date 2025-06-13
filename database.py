@@ -39,6 +39,11 @@ def insert_video(path: Path, metadata: Metadata) -> None:
     conn.commit()
 
 
+def delete_video_entry(url: str):
+    cur.execute("DELETE FROM videos WHERE url = ?;", (url,))
+    conn.commit()
+
+
 def get_video(url: str) -> tuple[Optional[Path], Optional[Metadata]]:
     cur.execute(
         "SELECT path, url, title, artist FROM videos WHERE url = ?;", (url,)
@@ -47,16 +52,16 @@ def get_video(url: str) -> tuple[Optional[Path], Optional[Metadata]]:
     if row is None:
         # print("Video not found")
         return None, None
-    assert len(row) == 4
-    path_str = row[0]
+    path_str, url, title, artist = row
     path = Path(path_str)
     metadata = Metadata(
-        url=row[1],
-        title=row[2],
-        artist=row[3],
+        url=url,
+        title=title,
+        artist=artist,
     )
     if not path.is_file():
-        # print(f"Deleted entry: {path_str}")
+        print(f"Removing deleted entry: {artist} - {title}")
+        delete_video_entry(url)
         return None, metadata
     # print(f"Video found: {path_str}")
     return path, metadata
