@@ -1,9 +1,9 @@
-from dataclasses import dataclass
 from pathlib import Path
 import sqlite3
 from typing import Optional
 
 from constants import VIDEOS_DIR
+from models import Metadata
 from util import get_pid_and_stime, process_exists
 
 
@@ -11,7 +11,7 @@ VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
 conn = sqlite3.connect(VIDEOS_DIR / "metadata.db")
 cur = conn.cursor()
 
-cur.execute("""
+cur.executescript("""
 CREATE TABLE IF NOT EXISTS videos (
     url TEXT NOT NULL UNIQUE PRIMARY KEY,
     path TEXT NOT NULL UNIQUE,
@@ -26,13 +26,6 @@ CREATE TABLE IF NOT EXISTS downloads_in_progress (
 );
 """)
 conn.commit()
-
-
-@dataclass
-class Metadata:
-    url: str
-    title: str
-    artist: str
 
 
 def insert_video(path: Path, metadata: Metadata) -> None:

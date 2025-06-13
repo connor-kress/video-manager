@@ -1,12 +1,25 @@
 import os
 import platform
+import re
 import psutil
 import subprocess
 import sys
 from pathlib import Path
 from typing import Optional
 from pymediainfo import MediaInfo
-from database import Metadata
+
+from models import LinkType, Metadata
+
+
+def get_link_type(url: str) -> LinkType:
+    zoom_pattern = re.compile(r"https://([\w-]+\.)?zoom\.us/.*")
+    mediasite_pattern = re.compile(r"https://mediasite\.video\.ufl\.edu/.*")
+    if zoom_pattern.match(url):
+        return LinkType.ZOOM
+    elif mediasite_pattern.match(url):
+        return LinkType.MEDIASITE
+    else:
+        return LinkType.DEFAULT
 
 
 # TODO: add link to file for download complete notification

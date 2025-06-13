@@ -1,25 +1,10 @@
 import sqlite3
 import sys
-from dataclasses import dataclass
 from typing import Optional
 
 from constants import NEWSBOAT_DB_PATH
 from database import Metadata
-
-
-@dataclass
-class NewsboatItem:
-    url: str
-    title: str
-    author: str
-    feed_title: str
-
-
-@dataclass
-class NewsboatFeed:
-    url: str
-    rssurl: str
-    title: str
+from models import NewsboatFeed, NewsboatItem
 
 
 def item_to_video_metadata(item: NewsboatItem) -> Metadata:

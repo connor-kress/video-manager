@@ -1,6 +1,4 @@
-from enum import Enum, auto
 from pathlib import Path
-import re
 import subprocess
 import sys
 import yt_dlp
@@ -8,26 +6,14 @@ from yt_dlp.utils import sanitize_filename
 
 from config import Config, load_config
 from constants import CONFIG_PATH, VIDEOS_DIR
-from database import get_video, insert_video, Metadata
+from database import clear_reservation, get_video, insert_video, try_reserve_url
 from mediasite import download_mediasite_video, get_mediasite_metadata
+from models import LinkType, Metadata
 from newsboat import (
     get_feed_and_items_from_newsboat,
     get_metadata_from_newsboat,
 )
-from util import send_notif
-
-
-class LinkType(Enum):
-    ZOOM = auto()
-    MEDIASITE = auto()
-    DEFAULT = auto()
-
-
-# def get_category_name(link_type: LinkType) -> str:
-#     match link_type:
-#         case LinkType.ZOOM: return "Zoom"
-#         case LinkType.MEDIASITE: return "Mediasite"
-#         case LinkType.DEFAULT: return "Youtube"
+from util import get_link_type, send_notif
 
 
 def get_encoding_args(link_type: LinkType, config: Config) -> list[str]:
@@ -38,17 +24,6 @@ def get_encoding_args(link_type: LinkType, config: Config) -> list[str]:
         ]
     else:
         return ["-codec", "copy"]
-
-
-def get_link_type(url: str) -> LinkType:
-    zoom_pattern = re.compile(r"https://([\w-]+\.)?zoom\.us/.*")
-    mediasite_pattern = re.compile(r"https://mediasite\.video\.ufl\.edu/.*")
-    if zoom_pattern.match(url):
-        return LinkType.ZOOM
-    elif mediasite_pattern.match(url):
-        return LinkType.MEDIASITE
-    else:
-        return LinkType.DEFAULT
 
 
 def set_props(
@@ -159,19 +134,22 @@ def download_video(file_path: Path, metadata: Metadata, config: Config) -> None:
         temp_path.unlink()
 
 
-def handle_single_video_download(url: str):
+def handle_single_download(url: str):
     file_path, metadata = get_video(url)
     if file_path is not None:
         assert metadata is not None
         send_notif("Already Downloaded", metadata.title)
         return
-
     config = load_config(CONFIG_PATH)
     if config is None:
         sys.exit(1)
 
     file_path, metadata = get_metadata(url)
     file_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if not try_reserve_url(url):
+        send_notif("Download Already In-Progress", metadata.title)
+        return
 
     send_notif("Starting Download", metadata.title)
     try:
@@ -182,10 +160,11 @@ def handle_single_video_download(url: str):
         sys.exit(1)
 
     insert_video(file_path, metadata)
+    clear_reservation(url)
     send_notif("Finished Download", metadata.title)
 
 
-def handle_feed_download(feed_url: str):
+def handle_bulk_download(feed_url: str):
     feed, all_items = get_feed_and_items_from_newsboat(feed_url)
     if feed is None:
         send_notif("Error", f"Could not find feed: {feed_url}")
@@ -206,10 +185,14 @@ def handle_feed_download(feed_url: str):
         sys.exit(1)
 
     send_notif("Starting Bulk Download", f"{feed.title} ({len(items)} videos)")
+    skipped = 0
     for i, item in enumerate(items):
         print(f"\tDownloading: {item.title}...")
         file_path, metadata = get_metadata(item.url)
         file_path.parent.mkdir(parents=True, exist_ok=True)
+        if not try_reserve_url(metadata.url):
+            skipped += 1
+            continue
         try:
             download_video(file_path, metadata, config)
         except KeyboardInterrupt:
@@ -218,17 +201,23 @@ def handle_feed_download(feed_url: str):
             file_path.unlink(missing_ok=True)
             sys.exit(1)
         insert_video(file_path, metadata)
+        clear_reservation(metadata.url)
 
-    send_notif("Finished Bulk Download", f"{feed.title} ({len(items)} videos)")
+    downloaded = len(items) - skipped
+    if skipped == 0:
+        msg = f"{feed.title} ({downloaded} downloaded)"
+    else:
+        msg = f"{feed.title} ({downloaded} downloaded, {skipped} skipped)"
+    send_notif("Finished Bulk Download", msg)
 
 
 def main() -> None:
     if len(sys.argv) == 2:
         url = sys.argv[1]
-        handle_single_video_download(url)
+        handle_single_download(url)
     elif len(sys.argv) == 3 and sys.argv[1] == "--feed":
         feed_url = sys.argv[2]
-        handle_feed_download(feed_url)
+        handle_bulk_download(feed_url)
     else:
         send_notif("Error", f"Invalid arguments: {sys.argv[1:]}")
         sys.exit(1)
