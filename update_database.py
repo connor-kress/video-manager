@@ -1,25 +1,28 @@
-from constants import VIDEOS_DIR
-from database import get_all_videos, insert_video
-from util import read_metadata
+# from constants import VIDEOS_DIR
+from database import delete_video, get_all_videos
+# from util import read_metadata
+
+
+def prune_deleted_video_entries() -> None:
+    for path, metadata in get_all_videos():
+        if not path.is_file():
+            print(f"Deleting entry: {metadata.artist} - {metadata.title}")
+            delete_video(metadata.url)
 
 
 def main() -> None:
-    visited_urls = set[str]()
-    for path in VIDEOS_DIR.rglob("*.mkv"):
-        print(path)
-        metadata = read_metadata(path)
-        if metadata is None:
-            print(f"ERROR reading metadata: {path}")
-            continue
-        # TODO: check if it moved before inserting it
-        insert_video(path, metadata)
-        visited_urls.add(metadata.url)
+    prune_deleted_video_entries()
 
-    videos = get_all_videos()
-    for path, metadata in videos:
-        if metadata.url not in visited_urls:
-            print(f"Deleted: {metadata}")
-            # TODO: Remove from database
+    # visited_urls = set[str]()
+    # for path in VIDEOS_DIR.rglob("*.mkv"):
+    #     print(path)
+    #     metadata = read_metadata(path)
+    #     if metadata is None:
+    #         print(f"ERROR reading metadata: {path}")
+    #         continue
+    #     # TODO: check if it moved before inserting it
+    #     # insert_video(path, metadata)
+    #     visited_urls.add(metadata.url)
 
 
 if __name__ == "__main__":
