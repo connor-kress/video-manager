@@ -1,6 +1,6 @@
 # from constants import VIDEOS_DIR
 from database import delete_video, get_all_videos
-from util import is_empty_dir
+from util import remove_dir_if_empty
 # from util import read_metadata
 
 
@@ -9,8 +9,7 @@ def prune_deleted_video_entries() -> None:
         if not path.is_file():
             print(f"Deleting entry: {metadata.artist} - {metadata.title}")
             delete_video(metadata.url)
-            if is_empty_dir(path.parent):
-                path.parent.rmdir()
+            remove_dir_if_empty(path.parent)
 
 
 def main() -> None:

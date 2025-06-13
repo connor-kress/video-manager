@@ -95,7 +95,9 @@ def process_exists(pid: int, stime: float) -> bool:
     return abs(p.create_time() - stime) <= 1.0
 
 
-def is_empty_dir(dir_path: Path) -> bool:
+def remove_dir_if_empty(dir_path: Path) -> None:
+    if not dir_path.is_dir():
+        return
     for _ in dir_path.iterdir():
-        return False
-    return True
+        return
+    dir_path.rmdir()
