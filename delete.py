@@ -1,7 +1,7 @@
 import sys
 
 from database import delete_video, get_video
-from util import send_notif
+from util import is_empty_dir, send_notif
 
 
 def main() -> None:
@@ -13,9 +13,11 @@ def main() -> None:
 
     file_path, metadata = get_video(url)
     if metadata:
-        delete_video(url)
         if file_path:
             file_path.unlink(missing_ok=True)
+            if is_empty_dir(file_path.parent):
+                file_path.parent.rmdir()
+        delete_video(url)
         send_notif("Deleted Video", metadata.title)
     else:
         send_notif("Failed to Delete Video", f"Video not found: {url}")

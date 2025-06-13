@@ -93,3 +93,9 @@ def process_exists(pid: int, stime: float) -> bool:
         return False
     # exists if create time matches
     return abs(p.create_time() - stime) <= 1.0
+
+
+def is_empty_dir(dir_path: Path) -> bool:
+    for _ in dir_path.iterdir():
+        return False
+    return True
