@@ -1,7 +1,9 @@
-import subprocess
-from pathlib import Path
+import os
 import platform
+import psutil
+import subprocess
 import sys
+from pathlib import Path
 from typing import Optional
 from pymediainfo import MediaInfo
 from database import Metadata
@@ -63,3 +65,18 @@ def read_metadata(file_path: Path) -> Optional[Metadata]:
             )
             return metadata
     return None
+
+
+def get_pid_and_stime() -> tuple[int, float]:
+    pid = os.getpid()
+    stime = psutil.Process(pid).create_time()
+    return pid, stime
+
+
+def process_exists(pid: int, stime: float) -> bool:
+    try:
+        p = psutil.Process(pid)
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        return False
+    # exists if create time matches
+    return abs(p.create_time() - stime) <= 1.0

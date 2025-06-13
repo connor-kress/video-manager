@@ -4,6 +4,7 @@ import sqlite3
 from typing import Optional
 
 from constants import VIDEOS_DIR
+from util import get_pid_and_stime, process_exists
 
 
 VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
@@ -16,6 +17,12 @@ CREATE TABLE IF NOT EXISTS videos (
     path TEXT NOT NULL UNIQUE,
     title TEXT NOT NULL,
     artist TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS downloads_in_progress (
+    url TEXT PRIMARY KEY,
+    pid INTEGER NOT NULL,
+    start_time REAL NOT NULL
 );
 """)
 conn.commit()
@@ -32,15 +39,7 @@ def insert_video(path: Path, metadata: Metadata) -> None:
     cur.execute(
         """
         INSERT INTO videos (path, url, title, artist)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(url) DO UPDATE SET
-            path = excluded.path,
-            title = excluded.title,
-            artist = excluded.artist
-        ON CONFLICT(path) DO UPDATE SET
-            url = excluded.url,
-            title = excluded.title,
-            artist = excluded.artist;
+        VALUES (?, ?, ?, ?);
         """,
         (str(path), metadata.url, metadata.title, metadata.artist),
     )
@@ -72,19 +71,62 @@ def get_video(url: str) -> tuple[Optional[Path], Optional[Metadata]]:
 
 def get_all_videos() -> list[tuple[Path, Metadata]]:
     cur.execute("SELECT path, url, title, artist FROM videos;")
-    rows = cur.fetchall()
-    return [(
-        Path(row[0]),
-        Metadata(
-            url=row[1],
-            title=row[2],
-            artist=row[3],
-        ),
-    ) for row in rows]
+    videos = []
+    for path, url, title, artist in cur.fetchall():
+        videos.append((
+            Path(path),
+            Metadata(
+                url=url,
+                title=title,
+                artist=artist,
+            ),
+        ))
+    return videos
 
 
 def delete_video(url: str) -> None:
     cur.execute(
         "DELETE FROM videos WHERE url = ?;", (url,)
+    )
+    conn.commit()
+
+
+def remove_stale_entries() -> None:
+    """Deletes rows whose PID is no longer running or whose
+    creation_time doesn't match.
+    """
+    cur.execute("SELECT url, pid, start_time FROM downloads_in_progress")
+    for url, pid, stime in cur.fetchall():
+        if not process_exists(pid, stime):
+            cur.execute(
+                "DELETE FROM downloads_in_progress WHERE url = ?",
+                (url,)
+            )
+    conn.commit()
+
+
+def try_reserve_url(url: str) -> bool:
+    """Returns True if we successfully reserved this URL for download,
+   False if it is already in-progress.
+   """
+    pid, stime = get_pid_and_stime()
+    remove_stale_entries()
+    try:
+        cur.execute(
+            "INSERT INTO downloads_in_progress(url, pid, start_time) "
+            "VALUES (?, ?, ?)",
+            (url, pid, stime)
+        )
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        # Download already in-progress
+        return False
+
+
+def clear_reservation(url: str) -> None:
+    cur.execute(
+        "DELETE FROM downloads_in_progress WHERE url = ?",
+        (url,)
     )
     conn.commit()

@@ -1,5 +1,6 @@
 browser_cookie3
 platformdirs
+psutil
 pydantic
 pymediainfo
 requests

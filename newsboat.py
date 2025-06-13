@@ -60,10 +60,8 @@ def fetch_newsboat_items_by_feed_raw(
     FROM rss_item
     WHERE feedurl = ?
     """, (feed.rssurl,))
-    rows = cur.fetchall()
     items = []
-    for row in rows:
-        url, title, author = row
+    for url, title, author in cur.fetchall():
         items.append(NewsboatItem(
             url=url,
             title=title,
