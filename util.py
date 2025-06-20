@@ -101,3 +101,11 @@ def remove_dir_if_empty(dir_path: Path) -> None:
     for _ in dir_path.iterdir():
         return
     dir_path.rmdir()
+
+
+def read_urls_from_file(file_path: Path) -> Optional[list[str]]:
+    if not file_path.is_file():
+        send_notif("Error", f"File does not exist: {file_path}")
+        return None
+    with open(file_path, "r") as file:
+        return [line.strip() for line in file.readlines() if line.strip()]

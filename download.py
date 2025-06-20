@@ -13,7 +13,7 @@ from newsboat import (
     get_feed_and_items_from_newsboat,
     get_metadata_from_newsboat,
 )
-from util import get_link_type, send_notif
+from util import get_link_type, read_urls_from_file, send_notif
 
 
 def get_encoding_args(link_type: LinkType, config: Config) -> list[str]:
@@ -134,15 +134,12 @@ def download_video(file_path: Path, metadata: Metadata, config: Config) -> None:
         temp_path.unlink()
 
 
-def handle_single_download(url: str):
+def handle_single_download(url: str, config: Config) -> None:
     file_path, metadata = get_video(url)
     if file_path is not None:
         assert metadata is not None
         send_notif("Already Downloaded", metadata.title)
         return
-    config = load_config(CONFIG_PATH)
-    if config is None:
-        sys.exit(1)
 
     file_path, metadata = get_metadata(url)
     file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -164,14 +161,10 @@ def handle_single_download(url: str):
     send_notif("Finished Download", metadata.title)
 
 
-def handle_bulk_download(feed_url: str):
+def handle_bulk_feed_download(feed_url: str, config: Config) -> None:
     feed, all_items = get_feed_and_items_from_newsboat(feed_url)
     if feed is None:
         send_notif("Error", f"Could not find feed: {feed_url}")
-        sys.exit(1)
-
-    config = load_config(CONFIG_PATH)
-    if config is None:
         sys.exit(1)
 
     items = []
@@ -190,7 +183,7 @@ def handle_bulk_download(feed_url: str):
         file_path, metadata = get_metadata(item.url)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         if not try_reserve_url(metadata.url):
-            print(f"\nSkipping: {item.title} ({i+1}/{len(items)})\n")
+            print(f"\nSkipping: {item.title} ({i+1}/{len(items)})")
             skipped += 1
             continue
         print(f"\nDownloading: {item.title} ({i+1}/{len(items)})\n")
@@ -212,13 +205,63 @@ def handle_bulk_download(feed_url: str):
     send_notif("Finished Bulk Download", msg)
 
 
+def handle_bulk_file_download(list_path: Path, config: Config) -> None:
+    all_urls = read_urls_from_file(list_path)
+    if all_urls is None:
+        sys.exit(1)
+
+    urls = []
+    for url in all_urls:
+        file_path, _ = get_video(url)
+        if file_path is None:
+            urls.append(url)
+
+    if len(urls) == 0:
+        send_notif("All Downloaded", f"{list_path} ({len(urls)} videos)")
+        sys.exit(1)
+
+    send_notif("Starting Bulk Download", f"{list_path} ({len(urls)} videos)")
+    skipped = 0
+    for i, url in enumerate(urls):
+        file_path, metadata = get_metadata(url)
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        if not try_reserve_url(metadata.url):
+            print(f"\nSkipping: {url} ({i+1}/{len(urls)})")
+            skipped += 1
+            continue
+        print(f"\nDownloading: {url} ({i+1}/{len(urls)})\n")
+        try:
+            download_video(file_path, metadata, config)
+        except KeyboardInterrupt:
+            rem = len(urls) - i
+            send_notif("Canceled Bulk Download", f"{rem}/{len(urls)} remaining")
+            file_path.unlink(missing_ok=True)
+            sys.exit(1)
+        insert_video(file_path, metadata)
+        clear_reservation(metadata.url)
+
+    downloaded = len(urls) - skipped
+    if skipped == 0:
+        msg = f"{list_path} ({downloaded} downloaded)"
+    else:
+        msg = f"{list_path} ({downloaded} downloaded, {skipped} skipped)"
+    send_notif("Finished Bulk Download", msg)
+
+
 def main() -> None:
+    config = load_config(CONFIG_PATH)
+    if config is None:
+        sys.exit(1)
+
     if len(sys.argv) == 2:
         url = sys.argv[1]
-        handle_single_download(url)
+        handle_single_download(url, config)
     elif len(sys.argv) == 3 and sys.argv[1] == "--feed":
         feed_url = sys.argv[2]
-        handle_bulk_download(feed_url)
+        handle_bulk_feed_download(feed_url, config)
+    elif len(sys.argv) == 3 and sys.argv[1] == "--file":
+        file_path = Path(sys.argv[2])
+        handle_bulk_file_download(file_path, config)
     else:
         send_notif("Error", f"Invalid Arguments: {sys.argv[1:]}")
         sys.exit(1)
