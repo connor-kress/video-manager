@@ -10,7 +10,7 @@ from database import clear_reservation, get_video, insert_video, try_reserve_url
 from mediasite import download_mediasite_video, get_mediasite_metadata
 from models import LinkType, Metadata
 from newsboat import (
-    get_feed_and_items_from_newsboat,
+    fetch_newsboat_feed_and_items,
     get_metadata_from_newsboat,
 )
 from util import get_link_type, read_urls_from_file, send_notif
@@ -162,7 +162,7 @@ def handle_single_download(url: str, config: Config) -> None:
 
 
 def handle_bulk_feed_download(feed_url: str, config: Config) -> None:
-    feed, all_items = get_feed_and_items_from_newsboat(feed_url)
+    feed, all_items = fetch_newsboat_feed_and_items(feed_url)
     if feed is None:
         send_notif("Error", f"Could not find feed: {feed_url}")
         sys.exit(1)
@@ -170,7 +170,7 @@ def handle_bulk_feed_download(feed_url: str, config: Config) -> None:
     items = []
     for item in all_items:
         file_path, _ = get_video(item.url)
-        if file_path is None:
+        if file_path is None and item.unread:
             items.append(item)
 
     if len(items) == 0:
@@ -191,7 +191,10 @@ def handle_bulk_feed_download(feed_url: str, config: Config) -> None:
             download_video(file_path, metadata, config)
         except KeyboardInterrupt:
             rem = len(items) - i
-            send_notif("Canceled Bulk Download", f"{rem}/{len(items)} remaining")
+            send_notif(
+                "Canceled Bulk Download",
+                f"{feed.title} {rem}/{len(items)} remaining",
+            )
             file_path.unlink(missing_ok=True)
             sys.exit(1)
         insert_video(file_path, metadata)
