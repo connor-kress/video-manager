@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum, auto
 
 
@@ -14,6 +15,9 @@ class NewsboatItem:
     url: str
     title: str
     author: str
+    pub_date: datetime
+    content: str
+    unread: bool
     feed_title: str
 
 
