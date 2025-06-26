@@ -108,4 +108,5 @@ def read_urls_from_file(file_path: Path) -> Optional[list[str]]:
         send_notif("Error", f"File does not exist: {file_path}")
         return None
     with open(file_path, "r") as file:
-        return [line.strip() for line in file.readlines() if line.strip()]
+        lines = (line.strip() for line in file)
+        return [line for line in lines if line and not line.startswith(("#", "//"))]
