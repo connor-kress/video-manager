@@ -161,7 +161,7 @@ def handle_single_download(url: str, config: Config) -> None:
     send_notif("Finished Download", metadata.title)
 
 
-def handle_bulk_feed_download(feed_url: str, config: Config) -> None:
+def handle_bulk_feed_download(feed_url: str, config: Config, only_unread: bool) -> None:
     feed, all_items = fetch_newsboat_feed_and_items(feed_url)
     if feed is None:
         send_notif("Error", f"Could not find feed: {feed_url}")
@@ -170,7 +170,9 @@ def handle_bulk_feed_download(feed_url: str, config: Config) -> None:
     items = []
     for item in all_items:
         file_path, _ = get_video(item.url)
-        if file_path is None and item.unread:
+        if file_path is not None:
+            continue
+        if item.unread or not only_unread:
             items.append(item)
 
     if len(items) == 0:
@@ -259,12 +261,15 @@ def main() -> None:
     if len(sys.argv) == 2:
         url = sys.argv[1]
         handle_single_download(url, config)
-    elif len(sys.argv) == 3 and sys.argv[1] == "--feed":
-        feed_url = sys.argv[2]
-        handle_bulk_feed_download(feed_url, config)
     elif len(sys.argv) == 3 and sys.argv[1] == "--file":
         file_path = Path(sys.argv[2])
         handle_bulk_file_download(file_path, config)
+    elif len(sys.argv) == 3 and sys.argv[1] == "--feed":
+        feed_url = sys.argv[2]
+        handle_bulk_feed_download(feed_url, config, only_unread=True)
+    elif len(sys.argv) == 4 and sys.argv[1] == "--feed" and sys.argv[2] == "--all":
+        feed_url = sys.argv[3]
+        handle_bulk_feed_download(feed_url, config, only_unread=False)
     else:
         send_notif("Error", f"Invalid Arguments: {sys.argv[1:]}")
         sys.exit(1)
