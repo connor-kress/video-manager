@@ -2,13 +2,13 @@ from pathlib import Path
 import sqlite3
 from typing import Optional
 
-from constants import VIDEOS_DIR
+from constants import MANAGER_DATA_PATH, MANAGER_METADATA_PATH
 from models import Metadata
 from util import get_pid_and_stime, process_exists
 
 
-VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
-conn = sqlite3.connect(VIDEOS_DIR / "metadata.db")
+MANAGER_DATA_PATH.mkdir(parents=True, exist_ok=True)
+conn = sqlite3.connect(MANAGER_METADATA_PATH)
 cur = conn.cursor()
 
 cur.executescript("""
