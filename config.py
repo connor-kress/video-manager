@@ -7,12 +7,18 @@ from constants import CONFIG_PATH
 from util import send_notif
 
 
+class DownloadConfig(BaseModel):
+    use_yt_dlp_cli: bool = Field(default=False)
+    yt_dlp_path: str = Field(default="yt-dlp")
+
+
 class FeaturesConfig(BaseModel):
     enable_zoom_reencoding: bool = Field(default=False)
 
 
 class Config(BaseModel):
     features: FeaturesConfig
+    download: DownloadConfig
 
 
 def load_config(config_path: Path) -> Optional[Config]:

@@ -35,16 +35,28 @@ def set_props(
 ) -> None:
     encoding_args = get_encoding_args(link_type, config)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    subprocess.run([
-        "ffmpeg",
-        "-y",  # overwrite destination file without asking
-        "-i", in_path,
-        "-metadata", f"URL={metadata.url}",
-        "-metadata", f"title={metadata.title}",
-        "-metadata", f"artist={metadata.artist}",
-        *encoding_args,
-        out_path,
-    ], check=True)
+    try:
+        subprocess.run([
+            "ffmpeg",
+            "-y",  # overwrite destination file without asking
+            "-i", in_path,
+            "-metadata", f"URL={metadata.url}",
+            "-metadata", f"title={metadata.title}",
+            "-metadata", f"artist={metadata.artist}",
+            *encoding_args,
+            out_path,
+        ], check=False)
+    except subprocess.CalledProcessError as e:
+        err_msg = str(e) if e.stderr is None else e.stderr.decode()
+        send_notif(
+            "Error", f"Error setting video props: {metadata.title} {err_msg}"
+        )
+        sys.exit(1)
+    except FileNotFoundError as e:
+        send_notif(
+            "Error", f"Error downloading video: {metadata.title} {e}"
+        )
+        sys.exit(1)
     print(f"set url prop to {metadata.url}")
 
 
@@ -98,7 +110,7 @@ def get_metadata(url: str) -> tuple[Path, Metadata]:
 
 
 
-def download_with_yt_dlp(metadata: Metadata, file_path: Path) -> None:
+def download_with_yt_dlp_lib(metadata: Metadata, file_path: Path) -> None:
     ydl_opts = {
         "format": "bestvideo[height<=2160]+bestaudio/best",
         "merge_output_format": "mkv",
@@ -116,6 +128,32 @@ def download_with_yt_dlp(metadata: Metadata, file_path: Path) -> None:
             sys.exit(1)
 
 
+def download_with_yt_dlp_cli(
+    metadata: Metadata,
+    file_path: Path,
+    config: Config,
+) -> None:
+    try:
+        subprocess.run([
+            config.download.yt_dlp_path,
+            "-f", "bestvideo[height<=2160]+bestaudio/best",
+            "--merge-output-format", "mkv",
+            "-o", file_path,
+            metadata.url,
+        ], check=False) # check=True with exit when any stderr is encountered
+    except subprocess.CalledProcessError as e:
+        err_msg = str(e) if e.stderr is None else e.stderr.decode()
+        send_notif(
+            "Error", f"Error downloading video: {metadata.title} {err_msg}"
+        )
+        sys.exit(1)
+    except FileNotFoundError as e:
+        send_notif(
+            "Error", f"Error downloading video: {metadata.title} {e}"
+        )
+        sys.exit(1)
+
+
 def download_video(file_path: Path, metadata: Metadata, config: Config) -> None:
     """Downloads a video with the appropriate method given the
     link type and user config.
@@ -126,7 +164,10 @@ def download_video(file_path: Path, metadata: Metadata, config: Config) -> None:
     else:
         temp_path = get_temp_path(file_path)
         try:
-            download_with_yt_dlp(metadata, temp_path)
+            if config.download.use_yt_dlp_cli:
+                download_with_yt_dlp_cli(metadata, temp_path, config)
+            else:
+                download_with_yt_dlp_lib(metadata, temp_path)
             set_props(temp_path, file_path, metadata, link_type, config)
         except KeyboardInterrupt as err:
             temp_path.unlink(missing_ok=True)
@@ -161,7 +202,11 @@ def handle_single_download(url: str, config: Config) -> None:
     send_notif("Finished Download", metadata.title)
 
 
-def handle_bulk_feed_download(feed_url: str, config: Config, only_unread: bool) -> None:
+def handle_bulk_feed_download(
+    feed_url: str,
+    config: Config,
+    only_unread: bool,
+) -> None:
     feed, all_items = fetch_newsboat_feed_and_items(feed_url)
     if feed is None:
         send_notif("Error", f"Could not find feed: {feed_url}")

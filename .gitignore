@@ -3,3 +3,6 @@ __pycache__
 
 # Downloading tests
 test_urls.txt
+
+# Manager config
+config.toml

@@ -1,0 +1,6 @@
+[features]
+enable_zoom_reencoding = false
+
+[download]
+use_yt_dlp_cli = false
+yt_dlp_path = "path/to/yt-dlp"
