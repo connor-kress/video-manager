@@ -19,8 +19,8 @@ from util import get_link_type, read_urls_from_file, send_notif
 def get_encoding_args(link_type: LinkType, config: Config) -> list[str]:
     if link_type == LinkType.ZOOM and config.features.enable_zoom_reencoding:
         return [
-            "-c:v", "libx264",
-            "-c:a", "copy",
+            "-codec:v", "libx264",
+            "-codec:a", "copy",
         ]
     else:
         return ["-codec", "copy"]

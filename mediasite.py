@@ -79,17 +79,28 @@ def extract_mediasite_m3u8_url(json_response: dict[str, Any]) -> Optional[str]:
 
 def download_m3u8(m3u8_url: str, out_path: Path, metadata: Metadata) -> None:
     """Call FFmpeg with the m3u8 URL and additional headers."""
-    subprocess.run([
-        "ffmpeg",
-        "-y",  # overwrite destination file without asking
-        "-headers", "Referer: https://mediasite.video.ufl.edu/\r\nOrigin: https://mediasite.video.ufl.edu",
-        "-i", m3u8_url,
-        "-metadata", f"URL={metadata.url}",
-        "-metadata", f"title={metadata.title}",
-        "-metadata", f"artist={metadata.artist}",
-        "-c", "copy",
-        str(out_path),
-    ], check=True)
+    try:
+        subprocess.run([
+            "ffmpeg",
+            "-y",  # overwrite destination file without asking
+            "-headers", "Referer: https://mediasite.video.ufl.edu/\r\n"
+                        "Origin: https://mediasite.video.ufl.edu\r\n",
+            # Force HLS demuxer and allow Smooth Streaming-style fMP4 fragment URLs
+            # "-f", "hls",
+            # "-allowed_extensions", "ALL",
+            "-i", m3u8_url,
+            "-metadata", f"URL={metadata.url}",
+            "-metadata", f"title={metadata.title}",
+            "-metadata", f"artist={metadata.artist}",
+            "-c", "copy",
+            str(out_path),
+        ], check=True)
+    except subprocess.CalledProcessError as e:
+        err_msg = str(e) if e.stderr is None else e.stderr.decode()
+        send_notif(
+            "Error", f"Error downloading mediasite video: {metadata.title} {err_msg}"
+        )
+        sys.exit(1)
 
 def download_mediasite_video(out_path: Path, metadata: Metadata) -> None:
     video_url = metadata.url
