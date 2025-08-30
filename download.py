@@ -17,7 +17,7 @@ from util import get_link_type, read_urls_from_file, send_notif
 
 
 def get_encoding_args(link_type: LinkType, config: Config) -> list[str]:
-    if link_type == LinkType.ZOOM and config.features.enable_zoom_reencoding:
+    if link_type == LinkType.ZOOM and config.features.zoom_reencoding:
         return [
             "-codec:v", "libx264",
             "-codec:a", "copy",
@@ -94,9 +94,9 @@ def get_metadata_with_yt_dlp(url: str) -> tuple[Path, Metadata]:
     return file_path, metadata
 
 
-def get_metadata(url: str) -> tuple[Path, Metadata]:
-    link_type = get_link_type(url)
-    if link_type == LinkType.MEDIASITE:
+def get_metadata(url: str, config: Config) -> tuple[Path, Metadata]:
+    is_mediasite = get_link_type(url) == LinkType.MEDIASITE
+    if is_mediasite and config.features.custom_mediasite_handler:
         return get_mediasite_metadata(url)
 
     metadata = get_metadata_from_newsboat(url)
@@ -159,7 +159,8 @@ def download_video(file_path: Path, metadata: Metadata, config: Config) -> None:
     link type and user config.
     """
     link_type = get_link_type(metadata.url)
-    if link_type == LinkType.MEDIASITE:
+    is_mediasite = link_type == LinkType.MEDIASITE
+    if is_mediasite and config.features.custom_mediasite_handler:
         download_mediasite_video(file_path, metadata)
     else:
         temp_path = get_temp_path(file_path)
@@ -182,7 +183,7 @@ def handle_single_download(url: str, config: Config) -> None:
         send_notif("Already Downloaded", metadata.title)
         return
 
-    file_path, metadata = get_metadata(url)
+    file_path, metadata = get_metadata(url, config)
     file_path.parent.mkdir(parents=True, exist_ok=True)
 
     if not try_reserve_url(url):
@@ -227,7 +228,7 @@ def handle_bulk_feed_download(
     send_notif("Starting Bulk Download", f"{feed.title} ({len(items)} videos)")
     skipped = 0
     for i, item in enumerate(items):
-        file_path, metadata = get_metadata(item.url)
+        file_path, metadata = get_metadata(item.url, config)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         if not try_reserve_url(metadata.url):
             print(f"\nSkipping: {item.title} ({i+1}/{len(items)})")
@@ -273,7 +274,7 @@ def handle_bulk_file_download(list_path: Path, config: Config) -> None:
     send_notif("Starting Bulk Download", f"{list_path} ({len(urls)} videos)")
     skipped = 0
     for i, url in enumerate(urls):
-        file_path, metadata = get_metadata(url)
+        file_path, metadata = get_metadata(url, config)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         if not try_reserve_url(metadata.url):
             print(f"\nSkipping: {url} ({i+1}/{len(urls)})")

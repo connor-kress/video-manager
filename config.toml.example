@@ -1,5 +1,6 @@
 [features]
-enable_zoom_reencoding = false
+zoom_reencoding = false
+custom_mediasite_handler = false
 
 [download]
 use_yt_dlp_cli = false

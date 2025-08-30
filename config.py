@@ -13,7 +13,8 @@ class DownloadConfig(BaseModel):
 
 
 class FeaturesConfig(BaseModel):
-    enable_zoom_reencoding: bool = Field(default=False)
+    custom_mediasite_handler: bool = Field(default=False)
+    zoom_reencoding: bool = Field(default=False)
 
 
 class Config(BaseModel):
