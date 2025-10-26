@@ -6,7 +6,13 @@ from yt_dlp.utils import sanitize_filename
 
 from config import Config, load_config
 from constants import CONFIG_PATH, VIDEOS_DIR
-from database import clear_reservation, get_video, insert_video, try_reserve_url
+from database import (
+    clear_reservation,
+    get_download_in_progress,
+    get_video,
+    insert_video,
+    try_reserve_url,
+)
 from mediasite import download_mediasite_video, get_mediasite_metadata
 from models import LinkType, Metadata
 from newsboat import (
@@ -169,6 +175,11 @@ def download_video(file_path: Path, metadata: Metadata, config: Config) -> None:
                 download_with_yt_dlp_cli(metadata, temp_path, config)
             else:
                 download_with_yt_dlp_lib(metadata, temp_path)
+            if not temp_path.is_file():
+                send_notif(
+                    "Error", f"Error downloading video: {metadata.url}"
+                )
+                sys.exit(1)
             set_props(temp_path, file_path, metadata, link_type, config)
         except KeyboardInterrupt as err:
             temp_path.unlink(missing_ok=True)
@@ -183,10 +194,15 @@ def handle_single_download(url: str, config: Config) -> None:
         send_notif("Already Downloaded", metadata.title)
         return
 
+    existing = get_download_in_progress(url)
+    if existing is not None:
+        send_notif("Download Already In-Progress", existing.title)
+        return
+
     file_path, metadata = get_metadata(url, config)
     file_path.parent.mkdir(parents=True, exist_ok=True)
 
-    if not try_reserve_url(url):
+    if not try_reserve_url(metadata):
         send_notif("Download Already In-Progress", metadata.title)
         return
 
@@ -230,7 +246,7 @@ def handle_bulk_feed_download(
     for i, item in enumerate(items):
         file_path, metadata = get_metadata(item.url, config)
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        if not try_reserve_url(metadata.url):
+        if not try_reserve_url(metadata):
             print(f"\nSkipping: {item.title} ({i+1}/{len(items)})")
             skipped += 1
             continue
@@ -276,7 +292,7 @@ def handle_bulk_file_download(list_path: Path, config: Config) -> None:
     for i, url in enumerate(urls):
         file_path, metadata = get_metadata(url, config)
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        if not try_reserve_url(metadata.url):
+        if not try_reserve_url(metadata):
             print(f"\nSkipping: {url} ({i+1}/{len(urls)})")
             skipped += 1
             continue
