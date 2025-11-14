@@ -5,7 +5,7 @@ import psutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 from pymediainfo import MediaInfo
 
 from models import LinkType, Metadata
@@ -22,46 +22,46 @@ def get_link_type(url: str) -> LinkType:
         return LinkType.DEFAULT
 
 
+type System = Literal["Linux", "Darwin", "Windows"]
 # TODO: add link to file for download complete notification
 def send_notif(title: str, msg: str) -> None:
-    system = platform.system()
+    system: System = platform.system() # type: ignore
+    match system:
+        case "Linux":
+            try:
+                subprocess.run([
+                    "notify-send",
+                    "--hint=int:transient:1",
+                    "--urgency=normal",
+                    title,
+                    msg,
+                ], check=True)
+            except FileNotFoundError:
+                print("`notify-send` not found. "
+                      "See README for installation instructions.",
+                      file=sys.stderr)
+            except subprocess.CalledProcessError as e:
+                print(f"Error running notify-send: {e}", file=sys.stderr)
 
-    if system == "Linux":
-        try:
-            subprocess.run([
-                "notify-send",
-                "--hint=int:transient:1",
-                "--urgency=normal",
-                title,
-                msg,
-            ], check=True)
-        except FileNotFoundError:
-            print(f"{title}: {msg}")
-            print("`notify-send` not found. "
-                  "See README for installation instructions.",
-                  file=sys.stderr)
-        except subprocess.CalledProcessError as e:
-            print(f"Error running notify-send: {e}", file=sys.stderr)
+        case "Darwin":
+            try:
+                subprocess.run([
+                    "terminal-notifier",
+                    "-title",
+                    title,
+                    "-message",
+                    msg,
+                ], check=True)
+            except FileNotFoundError:
+                print("`terminal-notifier` not found. "
+                      "See README for installation instructions.",
+                      file=sys.stderr)
+            except subprocess.CalledProcessError as e:
+                print(f"Error running terminal-notifier: {e}", file=sys.stderr)
 
-    elif system == "Darwin":
-        try:
-            subprocess.run([
-                "terminal-notifier",
-                "-title",
-                title,
-                "-message",
-                msg,
-            ], check=True)
-        except FileNotFoundError:
-            print(f"{title}: {msg}")
-            print("`terminal-notifier` not found. "
-                  "See README for installation instructions.",
-                  file=sys.stderr)
-        except subprocess.CalledProcessError as e:
-            print(f"Error running terminal-notifier: {e}", file=sys.stderr)
+        case "Windows":
+            pass
 
-    else:  # system == "Windows":
-        pass
     print(f"{title}: {msg}")
 
 
@@ -109,4 +109,5 @@ def read_urls_from_file(file_path: Path) -> Optional[list[str]]:
         return None
     with open(file_path, "r") as file:
         lines = (line.strip() for line in file)
-        return [line for line in lines if line and not line.startswith(("#", "//"))]
+        return [line for line in lines
+                if line and not line.startswith(("#", "//"))]
