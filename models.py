@@ -31,4 +31,5 @@ class NewsboatFeed:
 class LinkType(Enum):
     ZOOM = auto()
     MEDIASITE = auto()
+    INSTAGRAM = auto()
     DEFAULT = auto()

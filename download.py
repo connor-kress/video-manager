@@ -69,6 +69,13 @@ def set_props(
 def get_file_path_from_info(info: dict[str, str], link_type: LinkType) -> Path:
     if link_type == LinkType.ZOOM:
         base_name = sanitize_filename(f'zoom-{info["id"]}')
+    elif link_type == LinkType.INSTAGRAM:
+        url = info.get("webpage_url")
+        if url is not None:
+            id = [s for s in url.split("/") if s][-1]
+        else:
+            id = info["epoch"]
+        base_name = sanitize_filename(f'{info["title"]}-{id}')
     else:
         base_name = sanitize_filename(info["title"])
     dir_name = sanitize_filename(info.get("uploader", "Unknown"))
@@ -93,8 +100,8 @@ def get_metadata_with_yt_dlp(url: str) -> tuple[Path, Metadata]:
         sys.exit(1)
     metadata = Metadata(
         url=url,
-        title = info.get("title", info.get("id", "Unknown")),
-        artist = info.get("uploader", "Unknown"),
+        title=info.get("title", info.get("id", "Unknown")),
+        artist=info.get("uploader", "Unknown"),
     )
     file_path = get_file_path_from_info(info, link_type)
     return file_path, metadata

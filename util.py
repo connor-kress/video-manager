@@ -14,10 +14,13 @@ from models import LinkType, Metadata
 def get_link_type(url: str) -> LinkType:
     zoom_pattern = re.compile(r"https://([\w-]+\.)?zoom\.us/.*")
     mediasite_pattern = re.compile(r"https://mediasite\.video\.ufl\.edu/.*")
+    instagram_pattern = re.compile(r"https://www\.instagram\.com/reel/.*")
     if zoom_pattern.match(url):
         return LinkType.ZOOM
     elif mediasite_pattern.match(url):
         return LinkType.MEDIASITE
+    elif instagram_pattern.match(url):
+        return LinkType.INSTAGRAM
     else:
         return LinkType.DEFAULT
 
