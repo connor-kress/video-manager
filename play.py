@@ -8,7 +8,11 @@ from download import send_notif
 
 def stream_video(url: str) -> None:
     try:
-        subprocess.run(["mpv", url], check=True, capture_output=True)
+        subprocess.run([
+            "mpv",
+            "--force-window",
+            url
+        ], check=True, capture_output=True)
     except subprocess.CalledProcessError as e:
         if "members-only" in str(e.stderr):
             send_notif("Error: Members Only", f"Members only video: {url}")
@@ -21,7 +25,7 @@ def stream_video(url: str) -> None:
 
 
 def play_file(file_path: Path) -> None:
-    subprocess.run(["mpv", file_path])
+    subprocess.run(["mpv", "--force-window", file_path])
 
 
 def main() -> None:
