@@ -1,4 +1,5 @@
 browser_cookie3
+feedgen
 platformdirs
 psutil
 pydantic
