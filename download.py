@@ -87,6 +87,21 @@ def get_temp_path(file_path: Path) -> Path:
     return file_path.with_suffix(".tmp" + file_path.suffix)
 
 
+def get_yt_dlp_format(config: Config) -> str:
+    max_height = {
+        "4k": 2160,
+        "2160p": 2160,
+        "1440p": 1440,
+        "1080p": 1080,
+        "720p": 720,
+        "480p": 480,
+        "360p": 360,
+        "240p": 240,
+        "144p": 144,
+    }[config.download.max_quality]
+    return f"bestvideo[height<={max_height}]+bestaudio/best[height<={max_height}]"
+
+
 def get_metadata_with_yt_dlp(url: str) -> tuple[Path, Metadata]:
     link_type = get_link_type(url)
     with yt_dlp.YoutubeDL() as ydl:
@@ -123,9 +138,13 @@ def get_metadata(url: str, config: Config) -> tuple[Path, Metadata]:
 
 
 
-def download_with_yt_dlp_lib(metadata: Metadata, file_path: Path) -> None:
+def download_with_yt_dlp_lib(
+    metadata: Metadata,
+    file_path: Path,
+    config: Config,
+) -> None:
     ydl_opts = {
-        "format": "bestvideo[height<=2160]+bestaudio/best",
+        "format": get_yt_dlp_format(config),
         "merge_output_format": "mkv",
         "outtmpl": str(file_path),
         "embed-metadata": True,
@@ -149,7 +168,7 @@ def download_with_yt_dlp_cli(
     try:
         subprocess.run([
             config.download.yt_dlp_path,
-            "-f", "bestvideo[height<=2160]+bestaudio/best",
+            "-f", get_yt_dlp_format(config),
             "--merge-output-format", "mkv",
             "-o", file_path,
             metadata.url,
@@ -181,7 +200,7 @@ def download_video(file_path: Path, metadata: Metadata, config: Config) -> None:
             if config.download.use_yt_dlp_cli:
                 download_with_yt_dlp_cli(metadata, temp_path, config)
             else:
-                download_with_yt_dlp_lib(metadata, temp_path)
+                download_with_yt_dlp_lib(metadata, temp_path, config)
             if not temp_path.is_file():
                 send_notif(
                     "Error", f"Error downloading video: {metadata.url}"

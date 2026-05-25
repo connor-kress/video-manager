@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import BaseModel, Field
 import toml
 
@@ -10,6 +10,17 @@ from util import send_notif
 class DownloadConfig(BaseModel):
     use_yt_dlp_cli: bool = Field(default=False)
     yt_dlp_path: str = Field(default="yt-dlp")
+    max_quality: Literal[
+        "4k",
+        "2160p",
+        "1440p",
+        "1080p",
+        "720p",
+        "480p",
+        "360p",
+        "240p",
+        "144p",
+    ] = Field(default="1080p")
 
 
 class FeaturesConfig(BaseModel):

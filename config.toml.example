@@ -5,3 +5,4 @@ custom_mediasite_handler = false
 [download]
 use_yt_dlp_cli = false
 yt_dlp_path = "/path/to/yt-dlp"
+max_quality = "1080p"
