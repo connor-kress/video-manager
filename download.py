@@ -22,6 +22,19 @@ from newsboat import (
 from util import get_link_type, read_urls_from_file, send_notif
 
 
+QUALITY_HEIGHTS = {
+    "4k": 2160,
+    "2160p": 2160,
+    "1440p": 1440,
+    "1080p": 1080,
+    "720p": 720,
+    "480p": 480,
+    "360p": 360,
+    "240p": 240,
+    "144p": 144,
+}
+
+
 def get_encoding_args(link_type: LinkType, config: Config) -> list[str]:
     if link_type == LinkType.ZOOM and config.features.zoom_reencoding:
         return [
@@ -88,18 +101,16 @@ def get_temp_path(file_path: Path) -> Path:
 
 
 def get_yt_dlp_format(config: Config) -> str:
-    max_height = {
-        "4k": 2160,
-        "2160p": 2160,
-        "1440p": 1440,
-        "1080p": 1080,
-        "720p": 720,
-        "480p": 480,
-        "360p": 360,
-        "240p": 240,
-        "144p": 144,
-    }[config.download.max_quality]
-    return f"bestvideo[height<={max_height}]+bestaudio/best[height<={max_height}]"
+    min_height = QUALITY_HEIGHTS[config.download.min_quality]
+    max_height = QUALITY_HEIGHTS[config.download.max_quality]
+    if min_height > max_height:
+        msg = "min_quality cannot be higher than max_quality"
+        send_notif("Config Error", msg)
+        print(msg)
+        sys.exit(1)
+
+    height_filter = f"[height>={min_height}][height<={max_height}]"
+    return f"bestvideo{height_filter}+bestaudio/best{height_filter}"
 
 
 def get_metadata_with_yt_dlp(url: str) -> tuple[Path, Metadata]:

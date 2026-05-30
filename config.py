@@ -7,20 +7,24 @@ from constants import CONFIG_PATH
 from util import send_notif
 
 
+Quality = Literal[
+    "4k",
+    "2160p",
+    "1440p",
+    "1080p",
+    "720p",
+    "480p",
+    "360p",
+    "240p",
+    "144p",
+]
+
+
 class DownloadConfig(BaseModel):
     use_yt_dlp_cli: bool = Field(default=False)
     yt_dlp_path: str = Field(default="yt-dlp")
-    max_quality: Literal[
-        "4k",
-        "2160p",
-        "1440p",
-        "1080p",
-        "720p",
-        "480p",
-        "360p",
-        "240p",
-        "144p",
-    ] = Field(default="1080p")
+    max_quality: Quality = Field(default="1080p")
+    min_quality: Quality = Field(default="144p")
 
 
 class FeaturesConfig(BaseModel):
