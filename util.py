@@ -1,3 +1,5 @@
+__lazy_modules__ = {"psutil", "pymediainfo"}
+
 import os
 import platform
 import re

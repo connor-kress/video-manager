@@ -1,3 +1,5 @@
+__lazy_modules__ = {"feedgen.feed", "yt_dlp"}
+
 import argparse
 from datetime import UTC, datetime
 import hashlib

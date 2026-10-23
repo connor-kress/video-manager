@@ -1,3 +1,5 @@
+__lazy_modules__ = {"yt_dlp", "yt_dlp.utils", "mediasite"}
+
 from pathlib import Path
 import subprocess
 import sys

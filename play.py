@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 from database import get_video
-from download import send_notif
+from util import send_notif
 
 
 def stream_video(url: str) -> None:
