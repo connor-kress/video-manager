@@ -3,7 +3,8 @@ import sys
 from pathlib import Path
 
 from database import get_video
-from util import send_notif
+from newsboat import get_metadata_from_newsboat
+from util import send_network_error, send_notif
 
 
 def stream_video(url: str) -> None:
@@ -14,13 +15,13 @@ def stream_video(url: str) -> None:
             url
         ], check=True, capture_output=True)
     except subprocess.CalledProcessError as e:
+        metadata = get_metadata_from_newsboat(url)
+        label = (metadata.title if metadata else None) or url
+        details = e.stderr.decode(errors="replace") if e.stderr else str(e)
         if "members-only" in str(e.stderr):
-            send_notif("Error: Members Only", f"Members only video: {url}")
+            send_network_error("Error: Members Only", label, details=details)
         else:
-            if e.stderr:
-                send_notif("Error streaming video", f"{url} - {e.stderr}")
-            else:
-                send_notif("Error streaming video", f"{url}")
+            send_network_error("Error streaming video", label, details=details)
         raise e
 
 

@@ -10,7 +10,7 @@ from yt_dlp.utils import sanitize_filename
 from constants import VIDEOS_DIR
 from database import get_video, insert_video, Metadata
 from newsboat import get_metadata_from_newsboat
-from util import send_notif
+from util import send_network_error, send_notif
 
 
 def get_cookie_string(domain_filter: str) -> str:
@@ -26,7 +26,8 @@ def get_cookie_string(domain_filter: str) -> str:
 
 
 def get_player_options(
-    cookie_string: str, video_url: str, video_id: str
+    cookie_string: str, video_url: str, video_id: str,
+    video_title: str | None = None,
 ) -> dict[str, Any]:
     """Make the POST request to the GetPlayerOptions endpoint using
     the Cookie header.
@@ -55,8 +56,15 @@ def get_player_options(
             "UrlReferrer": None
         }
     }
-    response = requests.post(url, headers=headers, json=data)
-    response.raise_for_status()
+    try:
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        send_network_error(
+            "Error fetching mediasite video", video_title or video_url,
+            details=str(e),
+        )
+        sys.exit(1)
     return response.json()
 
 
@@ -97,8 +105,9 @@ def download_m3u8(m3u8_url: str, out_path: Path, metadata: Metadata) -> None:
         ], check=True)
     except subprocess.CalledProcessError as e:
         err_msg = str(e) if e.stderr is None else e.stderr.decode()
-        send_notif(
-            "Error", f"Error downloading mediasite video: {metadata.title} {err_msg}"
+        send_network_error(
+            "Error downloading mediasite video", metadata.title or metadata.url,
+            details=err_msg,
         )
         sys.exit(1)
 
@@ -109,7 +118,9 @@ def download_mediasite_video(out_path: Path, metadata: Metadata) -> None:
     cookie_str = get_cookie_string("mediasite.video.ufl.edu")
     # print(f"{cookie_str=}")
     # Get the JSON response for player options
-    json_data = get_player_options(cookie_str, video_url, video_id)
+    json_data = get_player_options(
+        cookie_str, video_url, video_id, metadata.title
+    )
     # Extract the m3u8 URL from the JSON response
     m3u8_url = extract_mediasite_m3u8_url(json_data)
 

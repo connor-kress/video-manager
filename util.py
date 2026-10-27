@@ -3,6 +3,7 @@ __lazy_modules__ = {"psutil", "pymediainfo"}
 import os
 import platform
 import re
+import socket
 import psutil
 import subprocess
 import sys
@@ -68,6 +69,36 @@ def send_notif(title: str, msg: str) -> None:
             pass
 
     print(f"{title}: {msg}")
+
+
+def has_internet_connection() -> bool:
+    """Probe HTTPS ports without DNS, only when diagnosing a failure.
+
+    Try two providers to avoid relying on a single endpoint. Each attempt
+    has a one-second timeout, so diagnosis adds at most about two seconds.
+    """
+    for address in ("1.1.1.1", "8.8.8.8"):
+        try:
+            with socket.create_connection((address, 443), timeout=1):
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def send_network_error(
+    title: str, msg: str, *, details: str | None = None
+) -> None:
+    """Prefer an offline notification if a failed network operation was offline."""
+    if details:
+        print(details, file=sys.stderr)
+    if not has_internet_connection():
+        send_notif(
+            "No internet connection",
+            f"{title}: {msg}",
+        )
+    else:
+        send_notif(title, msg)
 
 
 def read_metadata(file_path: Path) -> Optional[Metadata]:

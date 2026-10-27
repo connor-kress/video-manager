@@ -21,7 +21,12 @@ from newsboat import (
     fetch_newsboat_feed_and_items,
     get_metadata_from_newsboat,
 )
-from util import get_link_type, read_urls_from_file, send_notif
+from util import (
+    get_link_type,
+    read_urls_from_file,
+    send_network_error,
+    send_notif,
+)
 
 
 QUALITY_HEIGHTS = {
@@ -121,10 +126,10 @@ def get_metadata_with_yt_dlp(url: str) -> tuple[Path, Metadata]:
         try:
             info = ydl.extract_info(url, download=False)
         except yt_dlp.DownloadError as e:
-            send_notif("Error", f"Error downloading video: {url} {e.msg}")
+            send_network_error("Error downloading video", url, details=e.msg)
             sys.exit(1)
     if info is None:
-        send_notif("Error", f"Error locating video: {url}")
+        send_network_error("Error locating video", url)
         sys.exit(1)
     metadata = Metadata(
         url=url,
@@ -167,8 +172,9 @@ def download_with_yt_dlp_lib(
         try:
             ydl.download([metadata.url])
         except yt_dlp.DownloadError as e:
-            send_notif(
-                "Error", f"Error downloading video: {metadata.url} {e.msg}"
+            send_network_error(
+                "Error downloading video", metadata.title or metadata.url,
+                details=e.msg,
             )
             sys.exit(1)
 
@@ -185,11 +191,12 @@ def download_with_yt_dlp_cli(
             "--merge-output-format", "mkv",
             "-o", file_path,
             metadata.url,
-        ], check=False) # check=True with exit when any stderr is encountered
+        ], check=True)
     except subprocess.CalledProcessError as e:
         err_msg = str(e) if e.stderr is None else e.stderr.decode()
-        send_notif(
-            "Error", f"Error downloading video: {metadata.title} {err_msg}"
+        send_network_error(
+            "Error downloading video", metadata.title or metadata.url,
+            details=err_msg,
         )
         sys.exit(1)
     except FileNotFoundError as e:
@@ -215,8 +222,8 @@ def download_video(file_path: Path, metadata: Metadata, config: Config) -> None:
             else:
                 download_with_yt_dlp_lib(metadata, temp_path, config)
             if not temp_path.is_file():
-                send_notif(
-                    "Error", f"Error downloading video: {metadata.url}"
+                send_network_error(
+                    "Error downloading video", metadata.title or metadata.url
                 )
                 sys.exit(1)
             set_props(temp_path, file_path, metadata, link_type, config)
